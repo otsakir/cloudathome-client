@@ -174,6 +174,14 @@ class IssueCertificateView(FormView):
         return context
 
     def form_valid(self, form):
+        if self.entry.scheme == ProxyEntry.SCHEME_HTTPS:
+            form.add_error(
+                None,
+                "Can't issue a certificate from an HTTPS proxy entry -- the ACME HTTP-01 "
+                'challenge needs a plain-HTTP route, which only an HTTP proxy entry for '
+                'this domain provides.',
+            )
+            return self.form_invalid(form)
         try:
             CertbotService.obtain_certificate(
                 self.entry.domain,

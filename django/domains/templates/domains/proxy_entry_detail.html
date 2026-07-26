@@ -2,7 +2,7 @@
 <html>
 <head><title>Proxy entry — {{ object }}</title></head>
 <body>
-<h1>{{ object }}</h1>
+<h1>Proxy entry - {{ object }}</h1>
 <p>
   {% if object.domain %}
     <a href="{% url 'domain_detail' object.domain_id %}">Back to {{ object.domain }}</a> |
@@ -67,10 +67,12 @@
     <tr><th>Expiry</th><td>{{ object.domain.cert_expiry|default:"—" }}</td></tr>
     <tr><th>Path</th><td>{{ object.domain.cert_path|default:"—" }}</td></tr>
   </table>
-  {% if object.tunnel_status == 'open' %}
-    <p><a href="{% url 'issue_certificate' object.pk %}">Issue certificate</a></p>
-  {% else %}
-    <p>Open the tunnel before issuing a certificate.</p>
+  {% if object.scheme != 'https' %}
+    {% if object.tunnel_status == 'open' %}
+      <p><a href="{% url 'issue_certificate' object.pk %}">Issue certificate</a></p>
+    {% else %}
+      <p>Open the tunnel before issuing a certificate.</p>
+    {% endif %}
   {% endif %}
 {% endif %}
 
