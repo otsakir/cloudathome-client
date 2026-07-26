@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 import shutil
 import signal
@@ -7,6 +8,8 @@ from pathlib import Path
 
 from cloudlink.config import get_config
 from cloudlink.services import CloudServerClient, CloudServerError
+
+logger = logging.getLogger(__name__)
 
 
 class CertbotError(Exception):
@@ -170,8 +173,8 @@ class SyncService:
                 client.delete_proxy_mapping('tcp', public_port=entry.public_port)
             else:
                 client.delete_proxy_mapping(entry.scheme, host=entry.domain.name)
-        except CloudServerError:
-            pass
+        except CloudServerError as e:
+            logger.info('sync_entry %r: no stale cloud mapping to remove (%s)', entry, e)
 
         try:
             if entry.scheme == ProxyEntry.SCHEME_TCP:
@@ -207,6 +210,7 @@ class SyncService:
                 SyncService.sync_entry(entry)
                 succeeded += 1
             except Exception:
+                logger.exception('sync_all: failed to sync entry %r', entry)
                 failed += 1
         return succeeded, failed
 
@@ -222,8 +226,8 @@ class SyncService:
                 client.delete_proxy_mapping('tcp', public_port=entry.public_port)
             else:
                 client.delete_proxy_mapping(entry.scheme, host=entry.domain.name)
-        except CloudServerError:
-            pass
+        except CloudServerError as e:
+            logger.info('disconnect_entry %r: no cloud mapping to remove (%s)', entry, e)
         entry.tunnel_pid = None
         entry.tunnel_status = ProxyEntry.TUNNEL_CLOSED
         entry.save()

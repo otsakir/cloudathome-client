@@ -1,3 +1,5 @@
+import logging
+
 from django import forms
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -9,6 +11,8 @@ from cloudlink.config import get_config
 from cloudlink.services import CloudServerClient, CloudServerError
 from domains.models import Domain, ProxyEntry
 from domains.services import TunnelService
+
+logger = logging.getLogger(__name__)
 
 
 class DashboardView(TemplateView):
@@ -47,6 +51,7 @@ class DashboardView(TemplateView):
             context['bandwidth_limit_kbps'] = home.get('bandwidth_limit_kbps')
             context['base_domains'] = home.get('base_domains', [])
         except Exception:
+            logger.exception('Dashboard: failed to fetch home details from the cloud server')
             context['bandwidth_limit_kbps'] = None
             context['base_domains'] = []
 
@@ -106,6 +111,7 @@ class SetBandwidthView(FormView):
             home = CloudServerClient().get_home()
             return {'bandwidth_limit_kbps': home.get('bandwidth_limit_kbps')}
         except Exception:
+            logger.exception('SetBandwidthView: failed to fetch current bandwidth limit from the cloud server')
             return {}
 
     def form_valid(self, form):

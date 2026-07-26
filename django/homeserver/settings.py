@@ -120,6 +120,28 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+
+# Logging
+# https://docs.djangoproject.com/en/5.2/topics/logging/
+# Without this, app loggers (cloudlink/domains/playbooks) have no handler of
+# their own and rely on Python's implicit stderr fallback, which only prints
+# WARNING and above -- too high a bar for routine INFO-level messages (e.g.
+# "no stale mapping to remove") to ever be seen.
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,  # keep Django's own request/server logging intact
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
@@ -7,6 +9,8 @@ from cloudlink.services import CloudServerClient, CloudServerError
 from domains.forms import AddDomainForm, IssueCertificateForm, ProxyEntryForm, TcpProxyEntryForm
 from domains.models import Domain, ProxyEntry
 from domains.services import CertbotError, CertbotService, SyncService, TunnelService
+
+logger = logging.getLogger(__name__)
 
 
 def _delete_proxy_entry(entry):
@@ -19,8 +23,8 @@ def _delete_proxy_entry(entry):
             client.delete_proxy_mapping('tcp', public_port=entry.public_port)
         else:
             client.delete_proxy_mapping(entry.scheme, host=entry.domain.name)
-    except CloudServerError:
-        pass
+    except CloudServerError as e:
+        logger.info('_delete_proxy_entry %r: no cloud mapping to remove (%s)', entry, e)
     entry.delete()
 
 
@@ -264,6 +268,7 @@ class SyncEntryView(View):
             SyncService.sync_entry(entry)
             messages.success(request, 'Entry synced successfully')
         except Exception as e:
+            logger.exception('Sync failed for proxy entry %r', entry)
             messages.error(request, f'Sync failed: {e}')
         return redirect('proxy_entry_detail', pk=entry.pk)
 
@@ -282,6 +287,7 @@ class TunnelToggleView(View):
                 entry.tunnel_pid = pid
                 entry.tunnel_status = ProxyEntry.TUNNEL_OPEN
             except Exception as e:
+                logger.exception('Failed to open tunnel for proxy entry %r', entry)
                 entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
                 messages.error(request, f'Failed to open tunnel: {e}')
         entry.save()

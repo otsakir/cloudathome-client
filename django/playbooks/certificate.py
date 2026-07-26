@@ -1,7 +1,11 @@
+import logging
+
 from cloudlink.services import CloudServerClient
 from domains.models import Domain, ProxyEntry
 from domains.services import CertbotService, TunnelService
 from playbooks.base import Playbook, PlaybookResult, StepResult
+
+logger = logging.getLogger(__name__)
 
 
 class IssueCertificatePlaybook(Playbook):
@@ -26,6 +30,7 @@ class IssueCertificatePlaybook(Playbook):
                 f'{"Created" if created else "Found existing"} domain {domain_name}',
             ))
         except Exception as e:
+            logger.exception('Issue-certificate playbook failed at "Get or create domain record" (domain=%s)', domain_name)
             steps.append(StepResult('Get or create domain record', 'error', str(e)))
             return PlaybookResult(steps=steps)
 
@@ -62,6 +67,7 @@ class IssueCertificatePlaybook(Playbook):
                     f'Tunnel port {entry.tunnel_port} allocated',
                 ))
         except Exception as e:
+            logger.exception('Issue-certificate playbook failed at "Register HTTP proxy mapping" (domain=%s)', domain_name)
             steps.append(StepResult('Register HTTP proxy mapping', 'error', str(e)))
             return PlaybookResult(steps=steps, entry=entry)
 
@@ -81,6 +87,7 @@ class IssueCertificatePlaybook(Playbook):
                 entry.save()
                 steps.append(StepResult('Open SSH tunnel', 'ok', f'pid {pid}'))
         except Exception as e:
+            logger.exception('Issue-certificate playbook failed at "Open SSH tunnel" (domain=%s)', domain_name)
             entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
             entry.save()
             steps.append(StepResult('Open SSH tunnel', 'error', str(e)))
@@ -92,6 +99,7 @@ class IssueCertificatePlaybook(Playbook):
             expiry = domain.cert_expiry.strftime('%Y-%m-%d') if domain.cert_expiry else 'unknown'
             steps.append(StepResult('Issue certificate', 'ok', f'Valid until {expiry}'))
         except Exception as e:
+            logger.exception('Issue-certificate playbook failed at "Issue certificate" (domain=%s)', domain_name)
             steps.append(StepResult('Issue certificate', 'error', str(e)))
             return PlaybookResult(steps=steps, entry=entry)
 
@@ -104,6 +112,7 @@ class IssueCertificatePlaybook(Playbook):
             entry = None
             steps.append(StepResult('Remove temporary HTTP proxy entry', 'ok', ''))
         except Exception as e:
+            logger.exception('Issue-certificate playbook failed at "Remove temporary HTTP proxy entry" (domain=%s)', domain_name)
             steps.append(StepResult('Remove temporary HTTP proxy entry', 'error', str(e)))
 
         return PlaybookResult(steps=steps, entry=entry)

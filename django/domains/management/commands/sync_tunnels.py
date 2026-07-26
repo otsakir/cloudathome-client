@@ -1,7 +1,11 @@
+import logging
+
 from django.core.management.base import BaseCommand, CommandError
 
 from domains.models import Domain, ProxyEntry
 from domains.services import SyncService
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -40,6 +44,7 @@ class Command(BaseCommand):
                     SyncService.sync_entry(entry)
                     self.stdout.write(self.style.SUCCESS(f'Synced {domain_name}'))
                 except Exception as e:
+                    logger.exception('sync_tunnels --domain %s: sync failed', domain_name)
                     raise CommandError(f'Sync failed for {domain_name}: {e}')
         else:
             if disconnect:
