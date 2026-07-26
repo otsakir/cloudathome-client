@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A single install of this repo can hold several independent **profiles** — one per cloud server it's registered with — each with its own SSH key, database, and Home Console instance.
 
+Locally, the cloud-side repo checks out as a sibling directory, `../cloudathome` relative to this one. Work spanning both sides of the system (e.g. a change to the REST API contract, or the `CloudServerClient`/`HAProxyService` URL shapes staying in sync) is typically done from a single Claude Code session rooted in `../cloudathome`, `cd`-ing into this repo as needed rather than starting a separate session per repo.
+
 ## Running & Building
 
 ### First-time setup
