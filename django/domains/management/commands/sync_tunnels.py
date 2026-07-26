@@ -2,7 +2,7 @@ import logging
 
 from django.core.management.base import BaseCommand, CommandError
 
-from domains.models import Domain, ProxyEntry
+from domains.models import Domain
 from domains.services import SyncService
 
 logger = logging.getLogger(__name__)
@@ -31,21 +31,29 @@ class Command(BaseCommand):
             domain = Domain.objects.filter(name=domain_name).first()
             if not domain:
                 raise CommandError(f'Domain not found: {domain_name}')
-            try:
-                entry = domain.proxy_entry
-            except ProxyEntry.DoesNotExist:
+            entries = list(domain.proxy_entries.all())
+            if not entries:
                 raise CommandError(f'No proxy entry for domain: {domain_name}')
 
             if disconnect:
-                SyncService.disconnect_entry(entry)
-                self.stdout.write(self.style.SUCCESS(f'Disconnected {domain_name}'))
+                for entry in entries:
+                    SyncService.disconnect_entry(entry)
+                self.stdout.write(self.style.SUCCESS(
+                    f'Disconnected {domain_name} ({", ".join(e.scheme.upper() for e in entries)})'
+                ))
             else:
-                try:
-                    SyncService.sync_entry(entry)
-                    self.stdout.write(self.style.SUCCESS(f'Synced {domain_name}'))
-                except Exception as e:
-                    logger.exception('sync_tunnels --domain %s: sync failed', domain_name)
-                    raise CommandError(f'Sync failed for {domain_name}: {e}')
+                failed_schemes = []
+                for entry in entries:
+                    try:
+                        SyncService.sync_entry(entry)
+                    except Exception:
+                        logger.exception('sync_tunnels --domain %s: sync failed for scheme %s', domain_name, entry.scheme)
+                        failed_schemes.append(entry.scheme.upper())
+                if failed_schemes:
+                    raise CommandError(f'Sync failed for {domain_name}: {", ".join(failed_schemes)}')
+                self.stdout.write(self.style.SUCCESS(
+                    f'Synced {domain_name} ({", ".join(e.scheme.upper() for e in entries)})'
+                ))
         else:
             if disconnect:
                 SyncService.disconnect_all()

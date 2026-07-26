@@ -35,20 +35,19 @@ class IssueCertificatePlaybook(Playbook):
             return PlaybookResult(steps=steps)
 
         # ── Step 2: create or reuse HTTP proxy entry ──────────────────────
+        # Only looks at HTTP-scheme entries -- an existing HTTPS entry (i.e. the
+        # domain is already live in production) must not block this, since that's
+        # exactly the case a certificate renewal needs to work through.
         try:
-            try:
-                existing = domain.proxy_entry
-                if existing.scheme != ProxyEntry.SCHEME_HTTP:
-                    raise Exception(
-                        f'Domain already has a {existing.scheme.upper()} proxy entry — remove it first.'
-                    )
+            existing = domain.proxy_entries.filter(scheme=ProxyEntry.SCHEME_HTTP).first()
+            if existing:
                 entry = existing
                 steps.append(StepResult(
                     'HTTP proxy entry',
                     'ok',
                     f'Reusing existing entry (tunnel port {entry.tunnel_port})',
                 ))
-            except ProxyEntry.DoesNotExist:
+            else:
                 if ProxyEntry.objects.filter(home_host='localhost', home_port=home_port).exists():
                     raise Exception(
                         f'Local port {home_port} is already used by another proxy entry.'

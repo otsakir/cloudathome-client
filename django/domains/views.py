@@ -34,7 +34,7 @@ class DomainListView(ListView):
     context_object_name = 'domains'
 
     def get_queryset(self):
-        return Domain.objects.select_related('proxy_entry').all()
+        return Domain.objects.prefetch_related('proxy_entries').all()
 
     def get_context_data(self, **kwargs):
         return super().get_context_data(**kwargs)
@@ -80,10 +80,11 @@ class DeleteDomainView(View):
 
     def post(self, request, pk):
         domain = get_object_or_404(Domain, pk=pk)
-        try:
-            _delete_proxy_entry(domain.proxy_entry)
-        except ProxyEntry.DoesNotExist:
-            pass
+        for entry in list(domain.proxy_entries.all()):
+            try:
+                _delete_proxy_entry(entry)
+            except Exception:
+                logger.exception('Failed to clean up proxy entry %r while deleting domain %r', entry, domain)
         domain.delete()
         return redirect('domain_list')
 
@@ -111,14 +112,19 @@ class ProxyEntryCreateView(FormView):
         else:
             home_host = 'localhost'
         home_port = form.cleaned_data['home_port']
+        scheme = form.cleaned_data['scheme']
 
         if ProxyEntry.objects.filter(home_host=home_host, home_port=home_port).exists():
             form.add_error(None, f'{home_host}:{home_port} is already used by another proxy entry.')
             return self.form_invalid(form)
 
+        if self.domain.proxy_entries.filter(scheme=scheme).exists():
+            form.add_error(None, f'This domain already has a {scheme.upper()} proxy entry.')
+            return self.form_invalid(form)
+
         client = CloudServerClient()
         try:
-            result = client.create_proxy_mapping(form.cleaned_data['scheme'], host=self.domain.name)
+            result = client.create_proxy_mapping(scheme, host=self.domain.name)
         except CloudServerError as e:
             form.add_error(None, str(e))
             return self.form_invalid(form)
@@ -128,7 +134,7 @@ class ProxyEntryCreateView(FormView):
             tunnel_port=result['tunnel_port'],
             home_host=home_host,
             home_port=home_port,
-            scheme=form.cleaned_data['scheme'],
+            scheme=scheme,
         )
         return redirect('proxy_entry_detail', pk=entry.pk)
 

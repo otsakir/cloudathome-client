@@ -26,16 +26,13 @@ class DashboardView(TemplateView):
         if cfg.tcp_port_base is not None and cfg.tcp_port_count is not None:
             context['tcp_port_max'] = cfg.tcp_port_base + cfg.tcp_port_count - 1
 
-        domains = list(Domain.objects.select_related('proxy_entry').all())
+        domains = list(Domain.objects.prefetch_related('proxy_entries').all())
         for domain in domains:
-            try:
-                entry = domain.proxy_entry
+            for entry in domain.proxy_entries.all():
                 entry.listening = (
                     TunnelService.is_home_port_open(entry.home_host, entry.home_port)
                     if entry.tunnel_status == ProxyEntry.TUNNEL_OPEN else None
                 )
-            except ProxyEntry.DoesNotExist:
-                pass
         context['domains'] = domains
 
         tcp_entries = list(ProxyEntry.objects.filter(scheme=ProxyEntry.SCHEME_TCP))

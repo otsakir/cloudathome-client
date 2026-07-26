@@ -50,7 +50,7 @@ class ProxyEntry(models.Model):
     tunnel_status = models.CharField(max_length=6, choices=TUNNEL_STATUS_CHOICES, default=TUNNEL_CLOSED)
 
     # HTTP/HTTPS only
-    domain = models.OneToOneField(Domain, null=True, blank=True, on_delete=models.CASCADE, related_name='proxy_entry')
+    domain = models.ForeignKey(Domain, null=True, blank=True, on_delete=models.CASCADE, related_name='proxy_entries')
 
     # TCP only
     public_port = models.IntegerField(null=True, blank=True)
@@ -58,6 +58,7 @@ class ProxyEntry(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=['home_host', 'home_port'], name='unique_home_host_port'),
+            models.UniqueConstraint(fields=['domain', 'scheme'], name='unique_domain_scheme'),
         ]
 
     def __str__(self):

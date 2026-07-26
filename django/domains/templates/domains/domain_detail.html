@@ -16,10 +16,10 @@
   <tr><th>Path</th><td>{{ object.cert_path|default:"—" }}</td></tr>
 </table>
 
-<h2>Proxy entry</h2>
+<h2>Proxy entries</h2>
 
-{% if object.proxy_entry %}
-  {% with entry=object.proxy_entry %}
+{% with entries=object.proxy_entries.all %}
+{% for entry in entries %}
   <p>
     <a href="{% url 'proxy_entry_detail' entry.pk %}">View proxy entry</a>
     — {{ entry.scheme|upper }} → :{{ entry.home_port }} (tunnel {{ entry.tunnel_status }})
@@ -28,9 +28,12 @@
     {% csrf_token %}
     <button type="submit" onclick="return confirm('Close the tunnel and delete this proxy entry?')">Delete proxy entry</button>
   </form>
-  {% endwith %}
-{% else %}
-  <p>No proxy entry yet - <a href="{% url 'add_proxy_entry' object.pk %}">Add</a></p>
+{% empty %}
+  <p>No proxy entry yet.</p>
+{% endfor %}
+{% if entries|length < 2 %}
+  <p><a href="{% url 'add_proxy_entry' object.pk %}">Add {% if entries %}another{% endif %} proxy entry</a></p>
 {% endif %}
+{% endwith %}
 </body>
 </html>

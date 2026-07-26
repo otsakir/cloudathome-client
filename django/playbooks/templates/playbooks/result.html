@@ -30,7 +30,11 @@
 </table>
 
 {% if result.success %}
-  <p>Certificate issued for <strong>{{ domain_name }}</strong>. You can now <a href="{% url 'domain_list' %}">add an HTTPS proxy entry</a> to serve traffic.</p>
+  {% if has_https_entry %}
+    <p>Certificate renewed for <strong>{{ domain_name }}</strong>.</p>
+  {% else %}
+    <p>Certificate issued for <strong>{{ domain_name }}</strong>. You can now <a href="{% url 'domain_list' %}">add an HTTPS proxy entry</a> to serve traffic.</p>
+  {% endif %}
 {% else %}
   {% if result.entry %}
     <p>The temporary proxy entry is still active — <a href="{% url 'proxy_entry_detail' result.entry.pk %}">inspect it</a> or retry certbot manually from there.</p>

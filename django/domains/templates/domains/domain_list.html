@@ -22,7 +22,7 @@
           <td><a href="{% url 'domain_detail' domain.pk %}">{{ domain.name }}</a></td>
           <td>{{ domain.cert_status }}</td>
           <td>{{ domain.cert_expiry|default:"—" }}</td>
-          <td>{% if domain.proxy_entry %}{{ domain.proxy_entry.tunnel_status }}{% else %}—{% endif %}</td>
+          <td>{% for entry in domain.proxy_entries.all %}{{ entry.scheme|upper }}: {{ entry.tunnel_status }}{% if not forloop.last %}<br>{% endif %}{% empty %}—{% endfor %}</td>
           <td><a href="{% url 'delete_domain' domain.pk %}">Delete</a></td>
         </tr>
       {% endfor %}

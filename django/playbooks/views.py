@@ -2,6 +2,7 @@ from django import forms
 from django.shortcuts import render
 from django.views.generic import FormView
 
+from domains.models import Domain, ProxyEntry
 from playbooks.certificate import IssueCertificatePlaybook
 
 
@@ -30,8 +31,14 @@ class IssueCertificateView(FormView):
 
     def form_valid(self, form):
         result = IssueCertificatePlaybook().run(**form.cleaned_data)
+        domain_name = form.cleaned_data['domain_name']
+        domain = Domain.objects.filter(name=domain_name).first()
+        has_https_entry = bool(
+            domain and domain.proxy_entries.filter(scheme=ProxyEntry.SCHEME_HTTPS).exists()
+        )
         return render(self.request, 'playbooks/result.html', {
             'playbook_name': IssueCertificatePlaybook.name,
             'result': result,
-            'domain_name': form.cleaned_data['domain_name'],
+            'domain_name': domain_name,
+            'has_https_entry': has_https_entry,
         })

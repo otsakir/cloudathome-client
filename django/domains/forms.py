@@ -34,7 +34,7 @@ class AddDomainForm(forms.Form):
 
 class ProxyEntryForm(forms.Form):
     scheme = forms.ChoiceField(
-        choices=ProxyEntry.SCHEME_CHOICES,
+        choices=[(ProxyEntry.SCHEME_HTTP, 'HTTP'), (ProxyEntry.SCHEME_HTTPS, 'HTTPS')],
         label='Scheme',
     )
     home_host = forms.CharField(

@@ -73,8 +73,8 @@
           <td><a href="{% url 'domain_detail' domain.pk %}">{{ domain.name }}</a></td>
           <td>{{ domain.cert_status }}</td>
           <td>{{ domain.cert_expiry|default:"—" }}</td>
-          <td>{% if domain.proxy_entry %}{{ domain.proxy_entry.tunnel_status }}{% else %}—{% endif %}</td>
-          <td>{% if domain.proxy_entry and domain.proxy_entry.tunnel_status == 'open' %}{{ domain.proxy_entry.listening|yesno:"listening,not listening,—" }}{% endif %}</td>
+          <td>{% for entry in domain.proxy_entries.all %}{{ entry.scheme|upper }}: {{ entry.tunnel_status }}{% if not forloop.last %}<br>{% endif %}{% empty %}—{% endfor %}</td>
+          <td>{% for entry in domain.proxy_entries.all %}{% if entry.tunnel_status == 'open' %}{{ entry.listening|yesno:"listening,not listening,—" }}{% else %}—{% endif %}{% if not forloop.last %}<br>{% endif %}{% empty %}—{% endfor %}</td>
         </tr>
       {% endfor %}
     </tbody>
