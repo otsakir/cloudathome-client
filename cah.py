@@ -8,10 +8,10 @@ Usage:
     python cah.py list
     python cah.py remove myhome [--yes]
 
-Each registration gets its own profile directory under home/providers/<name>/, so the
+Each registration gets its own profile directory under providers/<name>/, so the
 same client can stay connected to several cloud servers side by side (one `runserver`
 process per profile, each with its own port). `--cloudserver-url` is optional: if
-omitted, it falls back to `default_cloudserver_url` in home/home.yaml, or otherwise to
+omitted, it falls back to `default_cloudserver_url` in home.yaml, or otherwise to
 a hardcoded default (the public demo server) -- so registering against the default
 server is just `python cah.py register --token <token>`.
 """
@@ -336,7 +336,7 @@ def main():
 
     p_register = subparsers.add_parser('register', help='Register this home with a cloud server')
     p_register.add_argument('name', type=str, nargs='?', default=None,
-                             help='Profile directory name under home/providers/ (default: derived '
+                             help='Profile directory name under providers/ (default: derived '
                                   'from the cloud server hostname)')
     p_register.add_argument('--cloudserver-url', default=None,
                              help='Base URL of the cloud server (default: home.yaml\'s '
@@ -348,7 +348,7 @@ def main():
     p_register.add_argument('--private-key', type=Path, default=None,
                              help='Path to an existing SSH private key (must be given together with --public-key)')
     p_register.add_argument('--output', '-o', type=Path, default=None,
-                             help='Output path for config.yaml (default: home/providers/<name>/config.yaml)')
+                             help='Output path for config.yaml (default: providers/<name>/config.yaml)')
     p_register.set_defaults(func=cmd_register)
 
     p_start = subparsers.add_parser('start', help='Start the Home Console for a profile')
