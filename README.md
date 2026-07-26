@@ -142,17 +142,19 @@ A home can register multiple base domains. Subdomains do not need to be register
 
 ## Obtaining a TLS certificate
 
-Certificate issuance is tied to a proxy entry. The full sequence from the Home Console:
+Certificate issuance is tied to a proxy entry, and it must be an **HTTP**-scheme one — the ACME HTTP-01 challenge always validates over plain port 80, which only an HTTP proxy entry's tunnel is routed to on the cloud side. An HTTPS entry's tunnel is only reachable via the SNI-routed port-443 frontend, so the Home Console doesn't offer "Issue certificate" there at all. The full sequence from the Home Console:
 
 **1. Add a domain** — go to **Domains → Add domain** and enter the domain name (e.g. `mysite.example.com`). DNS must already point to the cloud server.
 
-**2. Add a proxy entry** — from the domain detail page click **Add**. Choose a scheme and the local port certbot will listen on (e.g. `8082`). This registers the proxy mapping on the cloud server; the tunnel port is allocated server-side.
+**2. Add a proxy entry** — from the domain detail page click **Add**, choose scheme **HTTP**, and pick the local port certbot will listen on (e.g. `8082`). This registers the proxy mapping on the cloud server; the tunnel port is allocated server-side.
 
 **3. Open the tunnel** — on the proxy entry detail page click **Open tunnel**. This starts an SSH reverse tunnel: `cloud_tunnel_port → home:home_port`.
 
 **4. Issue the certificate** — with the tunnel open, click **Issue certificate**. Enter your email on the certificate page and submit. Certbot runs in standalone mode, Let's Encrypt validates the HTTP-01 challenge through the tunnel, and the certificate is saved to `providers/<name>/certbot/config/live/<domain>/`.
 
 The domain record is updated with the certificate path and expiry date on success.
+
+**5. Add an HTTPS proxy entry for real traffic** — a domain can hold one HTTP entry and one HTTPS entry at once, so add a second proxy entry (scheme **HTTPS**) for the same domain, pointing at your actual TLS-terminated local service, and open its tunnel too. This is also what makes renewal painless later: you can re-run certificate issuance against the HTTP entry at any time without ever taking the live HTTPS forward down.
 
 ## Bandwidth throttling
 
@@ -230,12 +232,14 @@ python cah.py start <name>
 
 **8. Open the tunnel and get a certificate** — click **Open tunnel**, then **Issue certificate** with your email.
 
-**9. Test**:
+**9. Add an HTTPS proxy entry and open its tunnel** — back on the domain detail page, click **Add** again, choose scheme `https` this time, pick the local port your actual TLS-terminated service listens on, then open its tunnel too. (The HTTP entry from step 7 can stay — a domain can hold one of each, which is also what lets you renew the certificate later without taking this HTTPS forward down.)
+
+**10. Test**:
 ```bash
 curl https://mysite.example.com
 ```
 
-**10. (Optional) Remove the home when you're done**:
+**11. (Optional) Remove the home when you're done**:
 ```bash
 python cah.py remove <name>
 ```

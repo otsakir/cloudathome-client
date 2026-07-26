@@ -107,6 +107,7 @@ HOME_CONFIG=<path-to-a-valid-config.yaml> pytest
 - **`deregister`** (management command) is the counterpart to `cah.py remove`: disconnects tunnels, calls the cloud to release the home slot (which itself cascades cleanup of base domains/mappings/bandwidth server-side), then revokes the API token — in that order, since revoking the token must be last (it invalidates the credential every prior call used).
 - **Certbot state** lives under the active profile's `certbot_dir` (`get_config().certbot_dir`), never a path derived from the module's own location, so concurrent profiles never share certbot's lock files.
 - **`features.lan_forwarding`** (per-profile config, off by default) gates whether a proxy entry may forward to a home-network host other than `localhost` — otherwise `home_host` is forced to `localhost` regardless of what's submitted.
+- **A `Domain` can hold one HTTP and one HTTPS `ProxyEntry` at once** (`domain` is a `ForeignKey` with `UniqueConstraint(['domain', 'scheme'])`, not the tighter `OneToOneField` it briefly was) — needed so `IssueCertificatePlaybook` can obtain/renew a certificate via a temporary HTTP entry without ever requiring a live HTTPS entry for the same domain to be torn down first. Certificate issuance itself only works from an HTTP-scheme entry (ACME HTTP-01 always validates over port 80, which only an HTTP-scheme mapping is routed to on the cloud side) — `IssueCertificateView` rejects it server-side for an HTTPS entry, and the Home Console doesn't show the link there at all.
 
 ### Talking to the cloud
 
