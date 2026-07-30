@@ -32,6 +32,8 @@ class CloudServerClient:
         else:
             url = self._url(f'/api/homes/{slug}/proxy-mappings/{scheme}/')
             payload = {'host': host, 'scheme': scheme}
+            if public_port is not None:
+                payload['public_port'] = public_port
         resp = requests.post(url, headers=self._headers(), json=payload)
         if resp.status_code != 201:
             raise CloudServerError(f'create_proxy_mapping failed: {resp.status_code} {resp.text}')

@@ -11,7 +11,7 @@ The cloud-side component (HAProxy + the Django API/SSH server that homes connect
 1. A home operator generates an API token from the cloud server's dashboard, then runs `python cah.py register` with that token. It registers the home (generating a dedicated SSH key pair by default), and writes the resulting connection details to a per-profile `providers/<name>/config.yaml`.
 2. `python cah.py start <name>` starts the Home Console Django app for that profile. A single client install can hold several such profiles side by side — one per cloud server — each run as its own process, started independently.
 3. For HTTP/HTTPS forwards, the operator first registers one or more **base domains** with the cloud server (e.g. `mysite.example.com`). The cloud enforces that no two homes can claim overlapping domains. The home is then authoritative for that domain and all its subdomains.
-4. The operator adds forwards in the Home Console — either HTTP/HTTPS (domain-based) or TCP (port-based). Each forward registers a mapping directly in HAProxy on the cloud server (no persistent cloud-side state) and records the allocated tunnel port locally. HTTP/HTTPS forwards are only accepted if the hostname falls under one of the home's registered base domains.
+4. The operator adds forwards in the Home Console — either HTTP/HTTPS (domain-based) or TCP (port-based). Each forward registers a mapping directly in HAProxy on the cloud server (no persistent cloud-side state) and records the allocated tunnel port locally. HTTP/HTTPS forwards are only accepted if the hostname falls under one of the home's registered base domains. By default an HTTP/HTTPS forward publishes on the standard port (80/443); the Add proxy entry page also shows the cloud's advertised alternate port range (refreshed every `cah.py start`) if you'd rather use a custom one — see [Custom inbound ports](#custom-inbound-ports-for-httphttps-forwards) below.
 5. For HTTP/HTTPS forwards: the operator opens the SSH tunnel and triggers certificate issuance from the proxy entry page. Certbot runs standalone locally; Let's Encrypt validates via the tunnel. The certificate is stored under `providers/<name>/certbot/`.
 6. The operator closes the temporary tunnel if needed, or keeps it open for production traffic.
 7. Incoming HTTPS traffic hits the cloud server's HAProxy, routed by SNI hostname through the tunnel. Incoming TCP traffic hits HAProxy on the allocated public port, routed by destination port through the tunnel.
@@ -139,6 +139,26 @@ The cloud validates that the domain is a proper registrable domain (not a bare T
 - To remove a domain, click **Remove** next to it on the dashboard. This is blocked with an error if any active proxy mappings still use that domain or its subdomains — disconnect those mappings first.
 
 A home can register multiple base domains. Subdomains do not need to be registered separately — once `example.com` is registered, the home can freely create proxy entries for `blog.example.com`, `api.example.com`, etc.
+
+## Custom inbound ports for HTTP/HTTPS forwards
+
+By default, an HTTP/HTTPS proxy entry publishes on the cloud's standard port (80 for
+HTTP, 443 for HTTPS). The cloud server may also advertise a shared alternate port
+range — useful if your network blocks outbound access to the standard ports, or you
+want more than one independent entry point. This range is **not** allocated
+per-home like the TCP range; any home can use any port in it, since HTTP/HTTPS
+forwards are routed by hostname, not port alone.
+
+**From the Home Console:** the **Add proxy entry** page shows the currently
+advertised HTTP and HTTPS ranges (if the cloud offers one) alongside the **Public
+port** field. Leave it blank for the standard port, or enter a port from the range
+shown for the scheme you're adding. The cloud validates the port server-side
+regardless of what the form shows.
+
+This range is cloud-wide config, not something you set — `python cah.py start`
+re-fetches it from the cloud (`GET /api/config/inbound-ports/<scheme>/`) every time
+and caches it into that profile's `config.yaml` (`cloudlink.http_ports`/`https_ports`),
+so it stays current across restarts without a network call on every page load.
 
 ## Obtaining a TLS certificate
 

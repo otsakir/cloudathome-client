@@ -8,6 +8,13 @@
 <p>Registers a proxy mapping on the cloud server. The tunnel port is allocated by the cloud server.
 Open the tunnel separately after creation.</p>
 
+{% if http_port_base and http_port_max %}
+  <p>Alternate HTTP port range: <strong>{{ http_port_base }}–{{ http_port_max }}</strong> (or leave blank for the standard port, 80)</p>
+{% endif %}
+{% if https_port_base and https_port_max %}
+  <p>Alternate HTTPS port range: <strong>{{ https_port_base }}–{{ https_port_max }}</strong> (or leave blank for the standard port, 443)</p>
+{% endif %}
+
 {% if form.non_field_errors %}
   <ul>{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>
 {% endif %}
@@ -18,6 +25,9 @@ Open the tunnel separately after creation.</p>
     {{ form.scheme.label_tag }}<br>{{ form.scheme }}
     {% if form.scheme.errors %}<ul>{% for e in form.scheme.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
     <br>
+    {{ form.public_port.label_tag }}<br>{{ form.public_port }}
+    {% if form.public_port.errors %}<ul>{% for e in form.public_port.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    <small>{{ form.public_port.help_text }}</small><br><br>
     {% if lan_forwarding %}
       {{ form.home_host.label_tag }}<br>{{ form.home_host }}
       {% if form.home_host.errors %}<ul>{% for e in form.home_host.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}

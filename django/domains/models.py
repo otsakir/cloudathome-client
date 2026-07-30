@@ -52,7 +52,9 @@ class ProxyEntry(models.Model):
     # HTTP/HTTPS only
     domain = models.ForeignKey(Domain, null=True, blank=True, on_delete=models.CASCADE, related_name='proxy_entries')
 
-    # TCP only
+    # Public-facing port. Always set for TCP. For HTTP/HTTPS, set to whatever the
+    # cloud resolved the mapping to -- the scheme standard port (80/443) unless a
+    # custom port was requested.
     public_port = models.IntegerField(null=True, blank=True)
 
     class Meta:
@@ -64,4 +66,6 @@ class ProxyEntry(models.Model):
     def __str__(self):
         if self.scheme == self.SCHEME_TCP:
             return f'TCP :{self.public_port} → {self.home_host}:{self.home_port}'
-        return f'{self.domain.name} → {self.home_host}:{self.home_port} ({self.scheme})'
+        default_port = 80 if self.scheme == self.SCHEME_HTTP else 443
+        port_suffix = f':{self.public_port}' if self.public_port and self.public_port != default_port else ''
+        return f'{self.domain.name}{port_suffix} → {self.home_host}:{self.home_port} ({self.scheme})'

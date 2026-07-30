@@ -37,6 +37,15 @@ class ProxyEntryForm(forms.Form):
         choices=[(ProxyEntry.SCHEME_HTTP, 'HTTP'), (ProxyEntry.SCHEME_HTTPS, 'HTTPS')],
         label='Scheme',
     )
+    public_port = forms.IntegerField(
+        required=False,
+        label='Public port',
+        help_text=(
+            'Port on the cloud server clients will connect to. Leave blank for the standard '
+            'port (80 for HTTP, 443 for HTTPS), or choose a port within your cloud\'s advertised '
+            'inbound range for the selected scheme.'
+        ),
+    )
     home_host = forms.CharField(
         max_length=253,
         initial='localhost',

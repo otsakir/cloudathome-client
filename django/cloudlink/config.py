@@ -35,6 +35,10 @@ class CloudConfig:
     port_count: int
     tcp_port_base: int | None = None
     tcp_port_count: int | None = None
+    http_port_base: int | None = None
+    http_port_count: int | None = None
+    https_port_base: int | None = None
+    https_port_count: int | None = None
     # Directory containing the config file; used to resolve relative paths.
     config_dir: Path = field(default_factory=Path.cwd)
     # Absolute path to the SQLite database file, resolved at load time.
@@ -77,6 +81,8 @@ def load_config(path=None) -> CloudConfig:
         )
 
         tcp_ports = cl.get('tcp_ports') or {}
+        http_ports = cl.get('http_ports') or {}
+        https_ports = cl.get('https_ports') or {}
         ssh_data = dict(cl['ssh'])
 
         # Present-but-blank required fields (e.g. an unfilled dashboard download)
@@ -97,6 +103,10 @@ def load_config(path=None) -> CloudConfig:
             port_count=cl['ports']['count'],
             tcp_port_base=tcp_ports.get('base'),
             tcp_port_count=tcp_ports.get('count'),
+            http_port_base=http_ports.get('base'),
+            http_port_count=http_ports.get('count'),
+            https_port_base=https_ports.get('base'),
+            https_port_count=https_ports.get('count'),
             config_dir=config_dir,
             database=db_path,
             certbot_dir=certbot_dir,

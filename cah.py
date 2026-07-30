@@ -249,6 +249,43 @@ def cmd_register(args):
         print(f'  python cah.py start {profile_name}')
 
 
+def _refresh_inbound_port_ranges(data, config_path):
+    """Re-fetch the cloud's current shared HTTP/HTTPS inbound port ranges and cache
+    them into config.yaml. Runs on every `start` (not just the one-time `register`)
+    since these ranges are global cloud-side config that can change independently of
+    this home's own registration -- a value cached only at register could go stale
+    indefinitely."""
+    cl = data.setdefault('cloudlink', {})
+    base_url = cl.get('cloudserver_url', '').rstrip('/')
+    token = cl.get('auth_token')
+    if not base_url or not token:
+        return
+    changed = False
+    for scheme in ('http', 'https'):
+        try:
+            resp = requests.get(
+                f'{base_url}/api/config/inbound-ports/{scheme}/',
+                headers={'Authorization': f'Token {token}'},
+                timeout=5,
+            )
+            resp.raise_for_status()
+            ranges = resp.json().get('ranges') or []
+        except requests.RequestException as e:
+            print(f'Warning: could not refresh {scheme} port range ({e}); keeping cached value.', file=sys.stderr)
+            continue
+        key = f'{scheme}_ports'
+        new_val = {'base': ranges[0]['port_base'], 'count': ranges[0]['port_count']} if ranges else None
+        if cl.get(key) != new_val:
+            changed = True
+            if new_val is None:
+                cl.pop(key, None)
+            else:
+                cl[key] = new_val
+    if changed:
+        with open(config_path, 'w') as f:
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+
 def cmd_start(args):
     config_path = _profile_config_path(args.name)
     data = _load_yaml(config_path)
@@ -262,6 +299,9 @@ def cmd_start(args):
             with open(config_path, 'w') as f:
                 yaml.dump(data, f, default_flow_style=False, sort_keys=False)
             print(f'Assigned port {port} to this profile (saved to config.yaml)')
+
+    print('Refreshing inbound port ranges from cloud...')
+    _refresh_inbound_port_ranges(data, config_path)
 
     if not args.no_sync:
         print('Reconnecting existing tunnels...')

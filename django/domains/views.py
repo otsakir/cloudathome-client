@@ -100,8 +100,15 @@ class ProxyEntryCreateView(FormView):
     def get_context_data(self, **kwargs):
         from cloudlink.config import get_config
         context = super().get_context_data(**kwargs)
+        cfg = get_config()
         context['domain'] = self.domain
-        context['lan_forwarding'] = get_config().features.lan_forwarding
+        context['lan_forwarding'] = cfg.features.lan_forwarding
+        context['http_port_base'] = cfg.http_port_base
+        context['https_port_base'] = cfg.https_port_base
+        if cfg.http_port_base is not None and cfg.http_port_count is not None:
+            context['http_port_max'] = cfg.http_port_base + cfg.http_port_count - 1
+        if cfg.https_port_base is not None and cfg.https_port_count is not None:
+            context['https_port_max'] = cfg.https_port_base + cfg.https_port_count - 1
         return context
 
     def form_valid(self, form):
@@ -113,6 +120,7 @@ class ProxyEntryCreateView(FormView):
             home_host = 'localhost'
         home_port = form.cleaned_data['home_port']
         scheme = form.cleaned_data['scheme']
+        public_port = form.cleaned_data.get('public_port')
 
         if ProxyEntry.objects.filter(home_host=home_host, home_port=home_port).exists():
             form.add_error(None, f'{home_host}:{home_port} is already used by another proxy entry.')
@@ -122,9 +130,23 @@ class ProxyEntryCreateView(FormView):
             form.add_error(None, f'This domain already has a {scheme.upper()} proxy entry.')
             return self.form_invalid(form)
 
+        if public_port is not None:
+            default_port = 80 if scheme == ProxyEntry.SCHEME_HTTP else 443
+            base, count = (
+                (cfg.http_port_base, cfg.http_port_count) if scheme == ProxyEntry.SCHEME_HTTP
+                else (cfg.https_port_base, cfg.https_port_count)
+            )
+            in_range = base is not None and count is not None and base <= public_port < base + count
+            if public_port != default_port and not in_range:
+                if base is not None and count is not None:
+                    form.add_error('public_port', f'Must be {default_port} (default) or in range {base}–{base + count - 1}.')
+                else:
+                    form.add_error('public_port', f'Must be {default_port} (default).')
+                return self.form_invalid(form)
+
         client = CloudServerClient()
         try:
-            result = client.create_proxy_mapping(scheme, host=self.domain.name)
+            result = client.create_proxy_mapping(scheme, host=self.domain.name, public_port=public_port)
         except CloudServerError as e:
             form.add_error(None, str(e))
             return self.form_invalid(form)
@@ -132,6 +154,7 @@ class ProxyEntryCreateView(FormView):
         entry = ProxyEntry.objects.create(
             domain=self.domain,
             tunnel_port=result['tunnel_port'],
+            public_port=result.get('public_port'),
             home_host=home_host,
             home_port=home_port,
             scheme=scheme,
