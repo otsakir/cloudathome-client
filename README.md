@@ -44,12 +44,18 @@ The cloud-side component (HAProxy + the Django API/SSH server that homes connect
 - Python 3.11+
 - `certbot` CLI installed on the home machine (e.g. `sudo apt install certbot` or `pip install certbot`)
 - A registered, active account on the target cloud server (self-register at `http://<cloud-host>:8000/signup/`, then wait for an admin to activate it)
-- The Home Console's dependencies installed once, up front — `cah.py` itself only needs `requests`/`pyyaml`, but it shells out to `manage.py` (migrations, tunnel sync, running the server), which needs the full Django environment:
-  ```bash
-  cd django
-  python -m venv .venv && source .venv/bin/activate
-  pip install -r requirements.txt
-  ```
+
+## Setup
+
+After downloading or cloning this repo, install the Python dependencies once, up front. `cah.py` itself only needs `requests`/`pyyaml`, but it shells out to the Home Console's `manage.py` (migrations, tunnel sync, running the server), which needs the full Django environment — so a single virtualenv, installed from `django/requirements.txt`, covers both:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r django/requirements.txt
+```
+
+Run these from the repo root, so the virtualenv sits next to `cah.py` as `.venv/`. Activate that same virtualenv (`source .venv/bin/activate`) any time you run `cah.py` or `manage.py` from a new shell.
 
 ## Registering with a new cloud site
 
@@ -226,13 +232,7 @@ This assumes you already have access to a running cloud server with a public IP,
 
 **2. Generate an API token** — log in at `http://<cloud-host>:8000/`, click **Generate an API token**, and copy it (shown once).
 
-**3. Install this client's dependencies (once)**:
-```bash
-cd django
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cd ..
-```
+**3. Install this client's dependencies (once)** — see [Setup](#setup) above.
 
 **4. Register the home**:
 ```bash

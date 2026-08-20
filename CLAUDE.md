@@ -15,12 +15,12 @@ Locally, the cloud-side repo checks out as a sibling directory, `../cloudathome`
 ### First-time setup
 
 ```bash
-cd django
+# from the repo root
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r django/requirements.txt
 ```
 
-`cah.py` itself only needs `requests`/`pyyaml`, but it shells out to `manage.py` (migrations, tunnel sync, running the server), which needs the full Django environment above.
+`cah.py` itself only needs `requests`/`pyyaml`, but it shells out to `manage.py` (migrations, tunnel sync, running the server), which needs the full Django environment above. The virtualenv lives at the repo root (`.venv/`), not under `django/`, since `cah.py` — the usual entry point — is at the root too, and editors/tooling look for `.venv` next to the project root.
 
 ### The `cah.py` CLI (run from the repo root)
 
@@ -43,8 +43,8 @@ python cah.py remove <name> [--yes]
 ### Django (once a profile exists, outside `cah.py`)
 
 ```bash
-cd django
 source .venv/bin/activate
+cd django
 
 HOME_CONFIG=../providers/<name>/config.yaml python manage.py runserver 0.0.0.0:8001
 HOME_CONFIG=../providers/<name>/config.yaml python manage.py migrate
