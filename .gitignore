@@ -4,3 +4,4 @@ config.yaml
 home.yaml
 *.sqlite3
 providers/
+.idea/

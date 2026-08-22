@@ -6,3 +6,12 @@ default_cloudserver_url: http://cloudathome.retalia.org
 
 # Base port for auto-assigned Home Console ports (see `cah.py start`).
 # home_console_port_base: 8001
+
+# Overrides Django's ALLOWED_HOSTS for every profile's Home Console. Needed to
+# reach it via a LAN IP or a local domain name (e.g. a .local mDNS name or an
+# /etc/hosts entry) -- without this, Django's DEBUG-mode default only allows
+# localhost/127.0.0.1/[::1]. A leading dot matches all subdomains (e.g.
+# '.example.lan' matches 'nas.example.lan').
+# allowed_hosts:
+#   - myhome.local
+#   - 192.168.1.50

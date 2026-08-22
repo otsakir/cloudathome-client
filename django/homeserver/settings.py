@@ -25,7 +25,8 @@ SECRET_KEY = 'django-insecure-)_mp68)@)6bjk8$s2_yqj-lzr-^(-1kv*(i(i7u_7lb=^ew05z
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+from homeserver.home_config import get_allowed_hosts as _get_allowed_hosts  # noqa: E402
+ALLOWED_HOSTS = _get_allowed_hosts()
 
 
 # Application definition
