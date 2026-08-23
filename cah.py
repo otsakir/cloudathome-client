@@ -8,7 +8,7 @@ Usage:
     python cah.py list
     python cah.py remove myhome [--yes]
 
-Each registration gets its own profile directory under providers/<name>/, so the
+Each registration gets its own profile directory under providers/<profile>/, so the
 same client can stay connected to several cloud servers side by side (one `runserver`
 process per profile, each with its own port). `--cloudserver-url` is optional: if
 omitted, it falls back to `default_cloudserver_url` in home.yaml, or otherwise to
@@ -154,9 +154,9 @@ def cmd_register(args):
         output_path = args.output
         profile_dir = output_path.parent
     else:
-        if args.name:
-            _validate_profile_name(args.name)
-            profile_dir = providers_dir / args.name
+        if args.profile:
+            _validate_profile_name(args.profile)
+            profile_dir = providers_dir / args.profile
             if profile_dir.exists():
                 _error(f'profile already exists: {profile_dir}')
         else:
@@ -287,7 +287,7 @@ def _refresh_inbound_port_ranges(data, config_path):
 
 
 def cmd_start(args):
-    config_path = _profile_config_path(args.name)
+    config_path = _profile_config_path(args.profile)
     data = _load_yaml(config_path)
 
     port = args.port
@@ -307,7 +307,7 @@ def cmd_start(args):
         print('Reconnecting existing tunnels...')
         _run_manage(config_path, 'sync_tunnels', capture=False)
 
-    print(f'Starting Home Console for "{args.name}" on port {port}...')
+    print(f'Starting Home Console for "{args.profile}" on port {port}...')
     env = dict(os.environ, HOME_CONFIG=str(config_path))
     os.chdir(_MANAGE_PY.parent)
     os.execvpe(sys.executable, [sys.executable, str(_MANAGE_PY), 'runserver', f'0.0.0.0:{port}'], env)
@@ -345,7 +345,7 @@ def cmd_list(args):
 
 
 def cmd_remove(args):
-    config_path = _profile_config_path(args.name)
+    config_path = _profile_config_path(args.profile)
     profile_dir = config_path.parent
     data = _load_yaml(config_path)
     cloudserver_url = data.get('cloudlink', {}).get('cloudserver_url', '(unknown cloud server)')
@@ -367,7 +367,7 @@ def cmd_remove(args):
         sys.exit(1)
 
     shutil.rmtree(profile_dir)
-    print(f'Removed profile "{args.name}".')
+    print(f'Removed profile "{args.profile}".')
 
 
 def main():
@@ -375,9 +375,10 @@ def main():
     subparsers = parser.add_subparsers(dest='command', required=True)
 
     p_register = subparsers.add_parser('register', help='Register this home with a cloud server')
-    p_register.add_argument('name', type=str, nargs='?', default=None,
-                             help='Profile directory name under providers/ (default: derived '
-                                  'from the cloud server hostname)')
+    p_register.add_argument('profile', type=str, nargs='?', default=None,
+                             help='Profile name: a local label for this cloud connection, used as '
+                                  'the directory name under providers/ (default: derived from the '
+                                  'cloud server hostname)')
     p_register.add_argument('--cloudserver-url', default=None,
                              help='Base URL of the cloud server (default: home.yaml\'s '
                                   f'default_cloudserver_url, or {DEFAULT_CLOUDSERVER_URL})')
@@ -388,11 +389,11 @@ def main():
     p_register.add_argument('--private-key', type=Path, default=None,
                              help='Path to an existing SSH private key (must be given together with --public-key)')
     p_register.add_argument('--output', '-o', type=Path, default=None,
-                             help='Output path for config.yaml (default: providers/<name>/config.yaml)')
+                             help='Output path for config.yaml (default: providers/<profile>/config.yaml)')
     p_register.set_defaults(func=cmd_register)
 
     p_start = subparsers.add_parser('start', help='Start the Home Console for a profile')
-    p_start.add_argument('name', help='Profile name (see: python cah.py list)')
+    p_start.add_argument('profile', help='Profile name (see: python cah.py list)')
     p_start.add_argument('--port', type=int, default=None,
                           help='Port to serve on (default: auto-assigned and remembered per profile)')
     p_start.add_argument('--no-sync', action='store_true',
@@ -403,7 +404,7 @@ def main():
     p_list.set_defaults(func=cmd_list)
 
     p_remove = subparsers.add_parser('remove', help='Deregister a profile from its cloud server and delete it locally')
-    p_remove.add_argument('name', help='Profile name (see: python cah.py list)')
+    p_remove.add_argument('profile', help='Profile name (see: python cah.py list)')
     p_remove.add_argument('--yes', '-y', action='store_true', help='Skip the confirmation prompt')
     p_remove.set_defaults(func=cmd_remove)
 
