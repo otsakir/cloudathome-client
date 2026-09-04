@@ -82,6 +82,7 @@ Run `python cah.py <command> --help` for the full set of flags.
 - **[docs/forwards-and-certificates.md](docs/forwards-and-certificates.md)** — base domains, HTTP/HTTPS/TCP forwards, custom inbound ports, obtaining and renewing TLS certificates.
 - **[docs/tunnels-and-sync.md](docs/tunnels-and-sync.md)** — tunnel lifecycle, sync/disconnect, LAN forwarding, bandwidth throttling.
 - **[docs/configuration.md](docs/configuration.md)** — `home.yaml` and `config.yaml` reference (including reaching the Home Console from your LAN), portability, running multiple profiles side by side.
+- **[docs/running-as-a-service.md](docs/running-as-a-service.md)** — auto-starting `cah.py start` on boot with systemd (no Docker).
 - **[docs/architecture.md](docs/architecture.md)** — directory layout, components, design rationale, the cloud REST API surface — for anyone modifying this repo.
 
 For standing up your own cloud server, or the full cloud-side REST API reference, see **[otsakir/cloudathome](https://github.com/otsakir/cloudathome)**.

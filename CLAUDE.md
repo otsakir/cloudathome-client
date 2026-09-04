@@ -69,10 +69,11 @@ HOME_CONFIG=<path-to-a-valid-config.yaml> pytest
 Full writeup — components, directory layout, design rationale, the cloud REST
 API surface — lives in **[docs/architecture.md](docs/architecture.md)**. User/
 admin-facing how-tos are split across **[docs/forwards-and-certificates.md](docs/forwards-and-certificates.md)**,
-**[docs/tunnels-and-sync.md](docs/tunnels-and-sync.md)**, and
-**[docs/configuration.md](docs/configuration.md)** — check those before
-re-deriving something that's already documented, and update them (not just this
-file) when a change affects what they describe.
+**[docs/tunnels-and-sync.md](docs/tunnels-and-sync.md)**,
+**[docs/configuration.md](docs/configuration.md)**, and
+**[docs/running-as-a-service.md](docs/running-as-a-service.md)** — check those
+before re-deriving something that's already documented, and update them (not
+just this file) when a change affects what they describe.
 
 The two sharpest landmines, worth keeping front-of-mind without a doc hop:
 
