@@ -7,11 +7,16 @@ Tunnels are OS-level SSH processes (`ssh -R <tunnel_port>:<home_host>:<home_port
 after a Django restart. If a tunnel process dies unexpectedly, the status is
 corrected automatically the next time the proxy entry page is loaded.
 
-SSH process output (stdout/stderr) is inherited from the Django process and
-appears directly in the Home Console's terminal. For example, if the local
-service is not yet listening on its port, you will see repeated
-`connect_to localhost port <N>: failed.` lines — these come from SSH, not
-Django.
+SSH process output (stdout/stderr) still reaches the Home Console's own
+terminal/`journalctl` exactly as before — for example, if the local service is
+not yet listening on its port, you will see repeated
+`connect_to localhost port <N>: failed.` lines, which come from SSH, not
+Django. In addition, each tunnel now also logs to its own timestamped,
+rotating file at `providers/<profile>/logs/tunnels/<entry-id>-<slug>.log`
+(e.g. `7-mysite.example.com-https.log`, or `12-tcp-2222.log` for a TCP
+forward) — rotated at ~5MB with 3 backups kept. The file accumulates across
+reconnects and process restarts, so it's the place to look when investigating
+why a tunnel dropped, rather than relying on having watched the console live.
 
 By default a tunnel targets `localhost` on the home machine. To target another
 host on your home network instead, set `features.lan_forwarding: true` in

@@ -320,7 +320,7 @@ class TunnelToggleView(View):
             entry.tunnel_status = ProxyEntry.TUNNEL_CLOSED
         else:
             try:
-                pid = TunnelService.open_tunnel(entry.tunnel_port, entry.home_port, entry.home_host)
+                pid = TunnelService.open_tunnel(entry)
                 entry.tunnel_pid = pid
                 entry.tunnel_status = ProxyEntry.TUNNEL_OPEN
             except Exception as e:

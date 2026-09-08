@@ -80,7 +80,7 @@ class IssueCertificatePlaybook(Playbook):
                     f'Reusing existing tunnel (pid {entry.tunnel_pid})',
                 ))
             else:
-                pid = TunnelService.open_tunnel(entry.tunnel_port, home_port)
+                pid = TunnelService.open_tunnel(entry)
                 entry.tunnel_pid = pid
                 entry.tunnel_status = ProxyEntry.TUNNEL_OPEN
                 entry.save()

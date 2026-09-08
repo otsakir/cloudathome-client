@@ -58,6 +58,12 @@ sudo systemctl restart cloudathome-client
 sudo systemctl stop cloudathome-client
 ```
 
+Tunnel-specific chatter (SSH connection messages, drops) is also written per
+tunnel under `providers/<profile>/logs/tunnels/` regardless of how you're
+running the console — see [tunnels-and-sync.md](tunnels-and-sync.md) — so you
+don't have to scroll through `journalctl`'s combined output to find one
+tunnel's history.
+
 This replaces `cd cloudathome-client/ && source .venv/bin/activate && ./cah.py
 start <profile> &` entirely — on reboot, systemd starts it automatically once
 networking is up, and `journalctl` gives you what you'd otherwise see in the

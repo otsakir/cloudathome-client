@@ -69,7 +69,13 @@ aren't obvious from reading a single file in isolation.
   commit history.
 - **Tunnels are OS-level SSH processes**: `TunnelService.open_tunnel`/`close_tunnel`
   (`domains/services.py`) manage them via `subprocess`/`os.kill`; PIDs are
-  persisted on `ProxyEntry` so they survive a Django restart. `SyncService.sync_entry`
+  persisted on `ProxyEntry` so they survive a Django restart. `open_tunnel` also
+  streams each tunnel's merged stdout/stderr into its own timestamped, rotating
+  logfile at `providers/<profile>/logs/tunnels/<entry.pk>-<slug>.log` via a
+  dedicated `logging.Logger` per entry (`_get_tunnel_logger`) fed by a daemon
+  thread (`_pump_tunnel_output`) — this is additive to, not a replacement for,
+  the console/`journalctl` output an inherited fd would otherwise give, so
+  nothing regresses there. `SyncService.sync_entry`
   always tears down and re-establishes both the cloud mapping and the tunnel
   (never trusts a "still running" PID as proof the tunnel is still connected to
   the *current* cloud instance — a local ssh client can outlive the cloud
