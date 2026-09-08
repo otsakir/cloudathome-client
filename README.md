@@ -73,7 +73,7 @@ python cah.py remove <profile>
 | `python cah.py register [profile] --token <token> [--cloudserver-url URL]` | Register a new profile with a cloud server. |
 | `python cah.py start <profile> [--port PORT] [--no-sync]` | Start the Home Console for a profile (auto-assigned port, auto-reconnects tunnels). |
 | `python cah.py list` | List registered profiles — local only, no network calls. |
-| `python cah.py remove <profile> [--yes]` | Deregister a profile from its cloud server and delete it locally. |
+| `python cah.py remove <profile> [--yes] [--force]` | Deregister a profile from its cloud server and delete it locally (`--force` deletes locally even if the cloud server is unreachable). |
 
 Run `python cah.py <command> --help` for the full set of flags.
 

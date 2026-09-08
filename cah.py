@@ -6,7 +6,7 @@ Usage:
     python cah.py register [myhome] --token <api-token-from-the-dashboard> [--cloudserver-url URL]
     python cah.py start myhome [--port PORT] [--no-sync]
     python cah.py list
-    python cah.py remove myhome [--yes]
+    python cah.py remove myhome [--yes] [--force]
 
 Each registration gets its own profile directory under providers/<profile>/, so the
 same client can stay connected to several cloud servers side by side (one `runserver`
@@ -354,17 +354,26 @@ def cmd_remove(args):
         print(f'This will disconnect all tunnels, release the home slot on {cloudserver_url},')
         print(f'revoke this profile\'s API token, and permanently delete {profile_dir}')
         print('(database, certificates, SSH key).')
+        if args.force:
+            print('--force: local files will be deleted even if the cloud server is unreachable '
+                  'or rejects the deregistration.')
         if input('Continue? [y/N]: ').strip().lower() != 'y':
             print('Aborted.')
             return
 
-    result = _run_manage(config_path, 'deregister')
+    deregister_args = ['deregister', '--force'] if args.force else ['deregister']
+    result = _run_manage(config_path, *deregister_args)
     sys.stdout.write(result.stdout)
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
-        print(f'\nDeregistration failed -- {profile_dir} was NOT deleted. '
-              f'Fix the issue above and re-run to retry.', file=sys.stderr)
-        sys.exit(1)
+        if not args.force:
+            print(f'\nDeregistration failed -- {profile_dir} was NOT deleted. '
+                  f'Fix the issue above and re-run to retry, or pass --force to remove it '
+                  f'locally regardless.', file=sys.stderr)
+            sys.exit(1)
+        print(f'\nWarning: deregistration reported errors, but --force was given -- '
+              f'deleting {profile_dir} anyway. The cloud server may still hold stale records '
+              f'for this home.', file=sys.stderr)
 
     shutil.rmtree(profile_dir)
     print(f'Removed profile "{args.profile}".')
@@ -406,6 +415,9 @@ def main():
     p_remove = subparsers.add_parser('remove', help='Deregister a profile from its cloud server and delete it locally')
     p_remove.add_argument('profile', help='Profile name (see: python cah.py list)')
     p_remove.add_argument('--yes', '-y', action='store_true', help='Skip the confirmation prompt')
+    p_remove.add_argument('--force', '-f', action='store_true',
+                           help='Delete the profile locally even if the cloud server is unreachable '
+                                'or refuses to release the home slot / revoke the token')
     p_remove.set_defaults(func=cmd_remove)
 
     args = parser.parse_args()

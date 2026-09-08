@@ -78,7 +78,12 @@ aren't obvious from reading a single file in isolation.
   disconnects tunnels, calls the cloud to release the home slot (which itself
   cascades cleanup of base domains/mappings/bandwidth server-side), then revokes
   the API token — in that order, since revoking the token must be last (it
-  invalidates the credential every prior call used).
+  invalidates the credential every prior call used). Its `--force` flag (surfaced
+  as `cah.py remove --force`) turns a failure at either cloud call into a warning
+  instead of aborting, so an unreachable/uncooperative cloud server can't strand
+  a profile locally — `cah.py remove` still deletes `providers/<profile>/` in that
+  case, just with a warning that the cloud may still hold stale records for this
+  home.
 - **Certbot state** lives under the active profile's `certbot_dir`
   (`get_config().certbot_dir`), never a path derived from the module's own
   location, so concurrent profiles never share certbot's lock files.
