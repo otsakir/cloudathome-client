@@ -26,21 +26,18 @@ class DashboardView(TemplateView):
         if cfg.tcp_port_base is not None and cfg.tcp_port_count is not None:
             context['tcp_port_max'] = cfg.tcp_port_base + cfg.tcp_port_count - 1
 
+        # Reflects the actual local port state regardless of tunnel_status --
+        # whether the tunnel itself is open only affects whether that state is
+        # reachable from the cloud, not whether it's worth knowing about here.
         domains = list(Domain.objects.prefetch_related('proxy_entries').all())
         for domain in domains:
             for entry in domain.proxy_entries.all():
-                entry.listening = (
-                    TunnelService.is_home_port_open(entry.home_host, entry.home_port)
-                    if entry.tunnel_status == ProxyEntry.TUNNEL_OPEN else None
-                )
+                entry.listening = TunnelService.is_home_port_open(entry.home_host, entry.home_port)
         context['domains'] = domains
 
         tcp_entries = list(ProxyEntry.objects.filter(scheme=ProxyEntry.SCHEME_TCP))
         for entry in tcp_entries:
-            entry.listening = (
-                TunnelService.is_home_port_open(entry.home_host, entry.home_port)
-                if entry.tunnel_status == ProxyEntry.TUNNEL_OPEN else None
-            )
+            entry.listening = TunnelService.is_home_port_open(entry.home_host, entry.home_port)
         context['tcp_entries'] = tcp_entries
 
         try:
