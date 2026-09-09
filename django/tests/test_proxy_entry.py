@@ -10,14 +10,26 @@ from playbooks.certificate import IssueCertificatePlaybook
 @pytest.mark.django_db
 def test_domain_can_have_both_http_and_https_entries():
     domain = Domain.objects.create(name='mysite.example.com')
-    ProxyEntry.objects.create(domain=domain, scheme=ProxyEntry.SCHEME_HTTP, home_port=8080, tunnel_port=2000)
-    ProxyEntry.objects.create(domain=domain, scheme=ProxyEntry.SCHEME_HTTPS, home_port=8443, tunnel_port=2001)
+    ProxyEntry.objects.create(domain=domain, scheme=ProxyEntry.SCHEME_HTTP, public_port=80, home_port=8080, tunnel_port=2000)
+    ProxyEntry.objects.create(domain=domain, scheme=ProxyEntry.SCHEME_HTTPS, public_port=443, home_port=8443, tunnel_port=2001)
 
     assert domain.proxy_entries.count() == 2
 
     with transaction.atomic():
         with pytest.raises(IntegrityError):
-            ProxyEntry.objects.create(domain=domain, scheme=ProxyEntry.SCHEME_HTTP, home_port=8081, tunnel_port=2002)
+            ProxyEntry.objects.create(domain=domain, scheme=ProxyEntry.SCHEME_HTTP, public_port=80, home_port=8081, tunnel_port=2002)
+
+
+@pytest.mark.django_db
+def test_domain_can_have_two_entries_of_the_same_scheme_at_different_ports():
+    """The cloud's http_frontend/https_frontend route on hostname:destination_port,
+    not hostname alone, so the same domain+scheme can have independent entries as
+    long as their public_port differs."""
+    domain = Domain.objects.create(name='mysite.example.com')
+    ProxyEntry.objects.create(domain=domain, scheme=ProxyEntry.SCHEME_HTTPS, public_port=443, home_port=8443, tunnel_port=2001)
+    ProxyEntry.objects.create(domain=domain, scheme=ProxyEntry.SCHEME_HTTPS, public_port=8443, home_port=9443, tunnel_port=2002)
+
+    assert domain.proxy_entries.filter(scheme=ProxyEntry.SCHEME_HTTPS).count() == 2
 
 
 @pytest.mark.django_db
@@ -28,7 +40,7 @@ def test_issue_certificate_playbook_succeeds_when_domain_already_has_https_entry
     with patch('playbooks.certificate.CloudServerClient') as MockClient, \
          patch('playbooks.certificate.TunnelService') as MockTunnel, \
          patch('playbooks.certificate.CertbotService') as MockCertbot:
-        MockClient.return_value.create_proxy_mapping.return_value = {'tunnel_port': 2000}
+        MockClient.return_value.create_proxy_mapping.return_value = {'tunnel_port': 2000, 'public_port': 80}
         MockTunnel.open_tunnel.return_value = 12345
         MockCertbot.obtain_certificate = MagicMock()
 

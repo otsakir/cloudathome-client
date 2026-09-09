@@ -40,11 +40,15 @@ class CloudServerClient:
         return resp.json()
 
     def delete_proxy_mapping(self, scheme, host=None, public_port=None):
+        """public_port is required for every scheme: a host may have independent
+        HTTP/HTTPS mappings at more than one port (the cloud routes on
+        hostname:destination_port, not hostname alone), so it's needed to
+        disambiguate which one to remove, same as it always has been for TCP."""
         slug = get_config().home_slug
         if scheme == 'tcp':
             url = self._url(f'/api/homes/{slug}/proxy-mappings/tcp/{public_port}/')
         else:
-            url = self._url(f'/api/homes/{slug}/proxy-mappings/{scheme}/{host}/')
+            url = self._url(f'/api/homes/{slug}/proxy-mappings/{scheme}/{host}/{public_port}/')
         resp = requests.delete(url, headers=self._headers())
         if resp.status_code != 204:
             raise CloudServerError(f'delete_proxy_mapping failed: {resp.status_code} {resp.text}')

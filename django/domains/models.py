@@ -60,7 +60,11 @@ class ProxyEntry(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=['home_host', 'home_port'], name='unique_home_host_port'),
-            models.UniqueConstraint(fields=['domain', 'scheme'], name='unique_domain_scheme'),
+            # A domain may hold more than one entry per scheme, as long as they publish on
+            # different ports -- the cloud's http_frontend/https_frontend route on
+            # hostname:destination_port, not hostname alone, so e.g. mysite.example.com:443
+            # and mysite.example.com:8443 can point at two different home services.
+            models.UniqueConstraint(fields=['domain', 'scheme', 'public_port'], name='unique_domain_scheme_port'),
         ]
 
     def __str__(self):

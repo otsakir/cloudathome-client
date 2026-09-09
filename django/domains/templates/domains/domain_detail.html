@@ -22,7 +22,7 @@
 {% for entry in entries %}
   <p>
     <a href="{% url 'proxy_entry_detail' entry.pk %}">View proxy entry</a>
-    — {{ entry.scheme|upper }} → :{{ entry.home_port }} (tunnel {{ entry.tunnel_status }})
+    — {{ entry.scheme|upper }}{% if entry.public_port %}:{{ entry.public_port }}{% endif %} → :{{ entry.home_port }} (tunnel {{ entry.tunnel_status }})
   </p>
   <form method="post" action="{% url 'delete_proxy_entry' entry.pk %}">
     {% csrf_token %}
@@ -31,9 +31,7 @@
 {% empty %}
   <p>No proxy entry yet.</p>
 {% endfor %}
-{% if entries|length < 2 %}
-  <p><a href="{% url 'add_proxy_entry' object.pk %}">Add {% if entries %}another{% endif %} proxy entry</a></p>
-{% endif %}
+<p><a href="{% url 'add_proxy_entry' object.pk %}">Add {% if entries %}another{% endif %} proxy entry</a></p>
 {% endwith %}
 </body>
 </html>

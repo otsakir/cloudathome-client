@@ -34,19 +34,25 @@ persistent cloud-side state beyond the mapping itself) and records the
 allocated tunnel port locally. HTTP/HTTPS forwards are only accepted if the
 hostname falls under one of the home's registered base domains.
 
-A domain can hold **one HTTP entry and one HTTPS entry at the same time** — this
-is what makes certificate renewal painless later: you can re-run certificate
-issuance against the HTTP entry at any time without ever taking a live HTTPS
-forward down.
+A domain can hold **more than one entry per scheme, as long as each uses a
+different port** — the cloud routes HTTP/HTTPS traffic on hostname *and*
+destination port together, so e.g. `mysite.example.com` can have independent
+HTTPS entries on `:443` and `:8443`, forwarding to two different local
+services. It can also always hold one HTTP entry and one HTTPS entry
+simultaneously (on top of that) — this is what makes certificate renewal
+painless later: you can re-run certificate issuance against the (port-80) HTTP
+entry at any time without ever taking a live HTTPS forward down.
 
 ### Custom inbound ports
 
 By default, an HTTP/HTTPS proxy entry publishes on the cloud's standard port (80
 for HTTP, 443 for HTTPS). The cloud server may also advertise a shared alternate
 port range — useful if your network blocks outbound access to the standard
-ports, or you want more than one independent entry point. This range is **not**
-allocated per-home like the TCP range; any home can use any port in it, since
-HTTP/HTTPS forwards are routed by hostname, not port alone.
+ports, or you want more than one independent entry point for the same domain.
+This range is **not** allocated per-home like the TCP range; any home can use
+any port in it, since collision protection there comes from hostnames not
+colliding across homes (enforced when registering base domains), not from the
+port itself.
 
 **From the Home Console:** the **Add proxy entry** page shows the currently
 advertised HTTP and HTTPS ranges (if the cloud offers one) alongside the

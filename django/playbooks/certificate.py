@@ -37,9 +37,13 @@ class IssueCertificatePlaybook(Playbook):
         # ── Step 2: create or reuse HTTP proxy entry ──────────────────────
         # Only looks at HTTP-scheme entries -- an existing HTTPS entry (i.e. the
         # domain is already live in production) must not block this, since that's
-        # exactly the case a certificate renewal needs to work through.
+        # exactly the case a certificate renewal needs to work through. Specifically
+        # the port-80 HTTP entry: ACME's HTTP-01 challenge always validates over
+        # standard port 80, which is the only HTTP-scheme mapping the cloud routes
+        # there -- a domain can also have HTTP entries on other ports (for plain,
+        # non-ACME forwarding), and those must not be mistaken for this one.
         try:
-            existing = domain.proxy_entries.filter(scheme=ProxyEntry.SCHEME_HTTP).first()
+            existing = domain.proxy_entries.filter(scheme=ProxyEntry.SCHEME_HTTP, public_port=80).first()
             if existing:
                 entry = existing
                 steps.append(StepResult(
@@ -56,6 +60,7 @@ class IssueCertificatePlaybook(Playbook):
                 entry = ProxyEntry.objects.create(
                     domain=domain,
                     tunnel_port=result['tunnel_port'],
+                    public_port=result['public_port'],
                     home_host='localhost',
                     home_port=home_port,
                     scheme=ProxyEntry.SCHEME_HTTP,
@@ -106,7 +111,7 @@ class IssueCertificatePlaybook(Playbook):
         try:
             if entry.tunnel_pid:
                 TunnelService.close_tunnel(entry.tunnel_pid)
-            CloudServerClient().delete_proxy_mapping('http', host=domain_name)
+            CloudServerClient().delete_proxy_mapping('http', host=domain_name, public_port=entry.public_port)
             entry.delete()
             entry = None
             steps.append(StepResult('Remove temporary HTTP proxy entry', 'ok', ''))

@@ -281,7 +281,7 @@ class TunnelConnectionService:
             if entry.scheme == ProxyEntry.SCHEME_TCP:
                 client.delete_proxy_mapping('tcp', public_port=entry.public_port)
             else:
-                client.delete_proxy_mapping(entry.scheme, host=entry.domain.name)
+                client.delete_proxy_mapping(entry.scheme, host=entry.domain.name, public_port=entry.public_port)
         except CloudServerError as e:
             logger.info('reconnect_entry %r: no stale cloud mapping to remove (%s)', entry, e)
 
@@ -289,7 +289,11 @@ class TunnelConnectionService:
             if entry.scheme == ProxyEntry.SCHEME_TCP:
                 result = client.create_proxy_mapping('tcp', public_port=entry.public_port)
             else:
-                result = client.create_proxy_mapping(entry.scheme, host=entry.domain.name)
+                # Preserve this entry's existing public_port -- a host may have
+                # independent mappings at more than one port, so recreating
+                # without it would silently collapse back to the scheme
+                # default instead of the port this entry actually uses.
+                result = client.create_proxy_mapping(entry.scheme, host=entry.domain.name, public_port=entry.public_port)
             entry.tunnel_port = result['tunnel_port']
         except CloudServerError:
             entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
@@ -334,7 +338,7 @@ class TunnelConnectionService:
             if entry.scheme == ProxyEntry.SCHEME_TCP:
                 client.delete_proxy_mapping('tcp', public_port=entry.public_port)
             else:
-                client.delete_proxy_mapping(entry.scheme, host=entry.domain.name)
+                client.delete_proxy_mapping(entry.scheme, host=entry.domain.name, public_port=entry.public_port)
         except CloudServerError as e:
             logger.info('disconnect_entry %r: no cloud mapping to remove (%s)', entry, e)
         entry.tunnel_pid = None

@@ -22,7 +22,7 @@ def _delete_proxy_entry(entry):
         if entry.scheme == ProxyEntry.SCHEME_TCP:
             client.delete_proxy_mapping('tcp', public_port=entry.public_port)
         else:
-            client.delete_proxy_mapping(entry.scheme, host=entry.domain.name)
+            client.delete_proxy_mapping(entry.scheme, host=entry.domain.name, public_port=entry.public_port)
     except CloudServerError as e:
         logger.info('_delete_proxy_entry %r: no cloud mapping to remove (%s)', entry, e)
     entry.delete()
@@ -126,12 +126,20 @@ class ProxyEntryCreateView(FormView):
             form.add_error(None, f'{home_host}:{home_port} is already used by another proxy entry.')
             return self.form_invalid(form)
 
-        if self.domain.proxy_entries.filter(scheme=scheme).exists():
-            form.add_error(None, f'This domain already has a {scheme.upper()} proxy entry.')
+        default_port = 80 if scheme == ProxyEntry.SCHEME_HTTP else 443
+        effective_port = public_port or default_port
+
+        # A domain may hold more than one entry per scheme, as long as they publish
+        # on different ports (the cloud routes on hostname:destination_port, not
+        # hostname alone) -- only an exact scheme+port repeat conflicts.
+        if self.domain.proxy_entries.filter(scheme=scheme, public_port=effective_port).exists():
+            form.add_error(
+                None,
+                f'This domain already has a {scheme.upper()} proxy entry on port {effective_port}.',
+            )
             return self.form_invalid(form)
 
         if public_port is not None:
-            default_port = 80 if scheme == ProxyEntry.SCHEME_HTTP else 443
             base, count = (
                 (cfg.http_port_base, cfg.http_port_count) if scheme == ProxyEntry.SCHEME_HTTP
                 else (cfg.https_port_base, cfg.https_port_count)

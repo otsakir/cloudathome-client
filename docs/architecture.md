@@ -62,7 +62,7 @@ aren't obvious from reading a single file in isolation.
   (`create_proxy_mapping(scheme, host=None, public_port=None)`,
   `delete_proxy_mapping(scheme, host=None, public_port=None)`) must stay in sync
   with the cloud's URL structure
-  (`/api/homes/<slug>/proxy-mappings/<scheme>/<host>/` for HTTP/HTTPS,
+  (`/api/homes/<slug>/proxy-mappings/<scheme>/<host>/<port>/` for HTTP/HTTPS,
   `/api/homes/<slug>/proxy-mappings/tcp/<port>/` for TCP) — a past bug here
   silently dropped every delete because the client built the wrong URL shape;
   watch for this class of drift since the two repos no longer share a single
@@ -114,15 +114,28 @@ aren't obvious from reading a single file in isolation.
   (`domains/`) for client-side range validation before calling
   `create_proxy_mapping(scheme, host=..., public_port=...)` — the cloud is still
   authoritative and validates again server-side.
-- **A `Domain` can hold one HTTP and one HTTPS `ProxyEntry` at once** (`domain` is
-  a `ForeignKey` with `UniqueConstraint(['domain', 'scheme'])`, not the tighter
-  `OneToOneField` it briefly was) — needed so `IssueCertificatePlaybook` can
-  obtain/renew a certificate via a temporary HTTP entry without ever requiring a
-  live HTTPS entry for the same domain to be torn down first. Certificate
-  issuance itself only works from an HTTP-scheme entry (ACME HTTP-01 always
-  validates over port 80, which only an HTTP-scheme mapping is routed to on the
-  cloud side) — `IssueCertificateView` rejects it server-side for an HTTPS entry,
-  and the Home Console doesn't show the link there at all.
+- **A `Domain` can hold more than one `ProxyEntry` per scheme, as long as they
+  publish on different ports** (`domain` is a `ForeignKey` with
+  `UniqueConstraint(['domain', 'scheme', 'public_port'])`, not the tighter
+  `OneToOneField`/`UniqueConstraint(['domain', 'scheme'])` it went through
+  earlier) — the cloud's `http_frontend`/`https_frontend` route on
+  `hostname:destination_port`, not hostname alone (see the cloud repo's
+  `haproxy.cfg`), so e.g. `mysite.example.com:443` and
+  `mysite.example.com:8443` can legitimately point at two different home
+  services. `CloudServerClient.delete_proxy_mapping`/`create_proxy_mapping`
+  always pass `public_port` for HTTP/HTTPS now, not just TCP, since it's what
+  disambiguates which mapping is meant.
+  This also covers the original reason the constraint was loosened from
+  `OneToOneField` in the first place: `IssueCertificatePlaybook` needs to
+  obtain/renew a certificate via a temporary port-80 HTTP entry without ever
+  requiring a live HTTPS entry for the same domain to be torn down first —
+  it specifically reuses the entry at `public_port=80` (`ProxyEntry.objects
+  .filter(scheme=HTTP, public_port=80)`), not just any HTTP-scheme entry, since
+  a domain can now also have HTTP entries on other ports that aren't it.
+  Certificate issuance itself only works from an HTTP-scheme entry (ACME
+  HTTP-01 always validates over port 80, which only an HTTP-scheme mapping is
+  routed to on the cloud side) — `IssueCertificateView` rejects it server-side
+  for an HTTPS entry, and the Home Console doesn't show the link there at all.
 - **Playbooks** (`playbooks/`) wrap a multi-step flow — register mapping, open
   tunnel, run certbot, clean up — into a single dashboard action with a
   structured, step-by-step result (`PlaybookResult`/`StepResult`), leaving the
