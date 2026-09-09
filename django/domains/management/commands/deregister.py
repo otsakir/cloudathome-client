@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
 
 from cloudlink.services import CloudServerClient, CloudServerError
-from domains.services import SyncService
+from domains.services import TunnelConnectionService
 
 
 class Command(BaseCommand):
@@ -20,7 +20,7 @@ class Command(BaseCommand):
         force = options['force']
         had_errors = False
 
-        SyncService.disconnect_all()
+        TunnelConnectionService.disconnect_all()
         self.stdout.write('Disconnected all tunnels')
 
         client = CloudServerClient()

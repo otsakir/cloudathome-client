@@ -8,7 +8,7 @@ from django.views.generic import ListView, DetailView, FormView
 from cloudlink.services import CloudServerClient, CloudServerError
 from domains.forms import AddDomainForm, IssueCertificateForm, ProxyEntryForm, TcpProxyEntryForm
 from domains.models import Domain, ProxyEntry
-from domains.services import CertbotError, CertbotService, SyncService, TunnelService
+from domains.services import CertbotError, CertbotService, TunnelConnectionService, TunnelService
 
 logger = logging.getLogger(__name__)
 
@@ -281,9 +281,9 @@ class DeleteProxyEntryView(View):
         return redirect('domain_list')
 
 
-class SyncAllView(View):
+class ReconnectAllView(View):
     def post(self, request):
-        succeeded, failed = SyncService.sync_all()
+        succeeded, failed = TunnelConnectionService.reconnect_all()
         if failed:
             messages.warning(request, f'Connect all: {succeeded} connected, {failed} failed')
         else:
@@ -293,20 +293,20 @@ class SyncAllView(View):
 
 class DisconnectAllView(View):
     def post(self, request):
-        SyncService.disconnect_all()
+        TunnelConnectionService.disconnect_all()
         messages.success(request, 'All tunnels disconnected')
         return redirect('dashboard')
 
 
-class SyncEntryView(View):
+class ReconnectEntryView(View):
     def post(self, request, pk):
         entry = get_object_or_404(ProxyEntry, pk=pk)
         try:
-            SyncService.sync_entry(entry)
-            messages.success(request, 'Entry synced successfully')
+            TunnelConnectionService.reconnect_entry(entry)
+            messages.success(request, 'Entry reconnected successfully')
         except Exception as e:
-            logger.exception('Sync failed for proxy entry %r', entry)
-            messages.error(request, f'Sync failed: {e}')
+            logger.exception('Reconnect failed for proxy entry %r', entry)
+            messages.error(request, f'Reconnect failed: {e}')
         return redirect('proxy_entry_detail', pk=entry.pk)
 
 

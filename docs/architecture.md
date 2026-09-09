@@ -36,7 +36,7 @@ aren't obvious from reading a single file in isolation.
     ├── cloudlink/                       # profile config loading (config.py), cloud API client (services.py), dashboard views
     ├── domains/                         # Domain/ProxyEntry models, forms, views, tunnel/certbot services
     │   └── management/commands/
-    │       ├── sync_tunnels.py          # re-registers cloud mappings + reopens tunnels
+    │       ├── reconnect_tunnels.py     # re-registers cloud mappings + reopens tunnels
     │       └── deregister.py            # disconnects tunnels, releases the home slot, revokes the API token
     ├── playbooks/                       # scripted multi-step flows (e.g. IssueCertificatePlaybook), listed on the dashboard
     └── tests/                           # pytest suite
@@ -80,9 +80,10 @@ aren't obvious from reading a single file in isolation.
   `_on_tunnel_process_exited`, which flips the `ProxyEntry`'s status to `error`
   and clears its pid via a conditional `UPDATE ... WHERE pid = <this pid>` (not
   fetch-then-save) — guarding against a race where the entry has since been
-  reassigned a newer pid by a concurrent open/sync, which must never be
-  clobbered by a stale exit-handler for the old one. `SyncService.sync_entry`
-  always tears down and re-establishes both the cloud mapping and the tunnel
+  reassigned a newer pid by a concurrent open/reconnect, which must never be
+  clobbered by a stale exit-handler for the old one.
+  `TunnelConnectionService.reconnect_entry` always tears down and
+  re-establishes both the cloud mapping and the tunnel
   (never trusts a "still running" PID as proof the tunnel is still connected to
   the *current* cloud instance — a local ssh client can outlive the cloud
   restarting under it until `ServerAliveInterval`/`ServerAliveCountMax` time out).
@@ -141,7 +142,7 @@ this side, the relevant surface (all via `CloudServerClient`, all
 | DELETE | `/api/homes/<slug>/` | `deregister` (via `cah.py remove`) |
 | PATCH | `/api/homes/<slug>/` | bandwidth-limit form (`cloudlink/views.py`) |
 | GET/POST/DELETE | `/api/homes/<slug>/base-domains/...` | base-domain views (`cloudlink/views.py`) |
-| POST/DELETE | `/api/homes/<slug>/proxy-mappings/...` | `SyncService`, `_delete_proxy_entry`, proxy-entry create views (`domains/`) |
+| POST/DELETE | `/api/homes/<slug>/proxy-mappings/...` | `TunnelConnectionService`, `_delete_proxy_entry`, proxy-entry create views (`domains/`) |
 | GET | `/api/config/inbound-ports/<scheme>/` | `cah.py start`'s `_refresh_inbound_port_ranges` — called directly via `requests`, not through `CloudServerClient`, since it runs before Django/the profile config are bootstrapped (same reason `cmd_register` also calls the cloud with raw `requests`) |
 | DELETE | `/api/auth/token/` | `deregister` |
 

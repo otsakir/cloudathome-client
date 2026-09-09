@@ -4,7 +4,7 @@ Manage this home's connection(s) to CloudAtHome cloud server(s).
 
 Usage:
     python cah.py register [myhome] --token <api-token-from-the-dashboard> [--cloudserver-url URL]
-    python cah.py start myhome [--port PORT] [--no-sync]
+    python cah.py start myhome [--port PORT] [--no-reconnect]
     python cah.py list
     python cah.py remove myhome [--yes] [--force]
 
@@ -303,9 +303,9 @@ def cmd_start(args):
     print('Refreshing inbound port ranges from cloud...')
     _refresh_inbound_port_ranges(data, config_path)
 
-    if not args.no_sync:
+    if not args.no_reconnect:
         print('Reconnecting existing tunnels...')
-        _run_manage(config_path, 'sync_tunnels', capture=False)
+        _run_manage(config_path, 'reconnect_tunnels', capture=False)
 
     print(f'Starting Home Console for "{args.profile}" on port {port}...')
     env = dict(os.environ, HOME_CONFIG=str(config_path))
@@ -405,7 +405,7 @@ def main():
     p_start.add_argument('profile', help='Profile name (see: python cah.py list)')
     p_start.add_argument('--port', type=int, default=None,
                           help='Port to serve on (default: auto-assigned and remembered per profile)')
-    p_start.add_argument('--no-sync', action='store_true',
+    p_start.add_argument('--no-reconnect', action='store_true',
                           help='Skip automatically reconnecting existing tunnels on startup')
     p_start.set_defaults(func=cmd_start)
 

@@ -52,9 +52,9 @@
     <button type="submit">Open tunnel</button>
   {% endif %}
 </form>
-<form method="post" action="{% url 'sync_entry' object.pk %}" style="display:inline">
+<form method="post" action="{% url 'reconnect_entry' object.pk %}" style="display:inline">
   {% csrf_token %}
-  <button type="submit">Sync</button>
+  <button type="submit">Reconnect</button>
 </form>
 <form method="post" action="{% url 'delete_proxy_entry' object.pk %}" style="display:inline">
   {% csrf_token %}

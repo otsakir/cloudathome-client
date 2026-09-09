@@ -71,7 +71,7 @@ python cah.py remove <profile>
 | Command | What it does |
 |---------|---------------|
 | `python cah.py register [profile] --token <token> [--cloudserver-url URL]` | Register a new profile with a cloud server. |
-| `python cah.py start <profile> [--port PORT] [--no-sync]` | Start the Home Console for a profile (auto-assigned port, auto-reconnects tunnels). |
+| `python cah.py start <profile> [--port PORT] [--no-reconnect]` | Start the Home Console for a profile (auto-assigned port, auto-reconnects tunnels). |
 | `python cah.py list` | List registered profiles — local only, no network calls. |
 | `python cah.py remove <profile> [--yes] [--force]` | Deregister a profile from its cloud server and delete it locally (`--force` deletes locally even if the cloud server is unreachable). |
 
@@ -80,7 +80,7 @@ Run `python cah.py <command> --help` for the full set of flags.
 ## Learn more
 
 - **[docs/forwards-and-certificates.md](docs/forwards-and-certificates.md)** — base domains, HTTP/HTTPS/TCP forwards, custom inbound ports, obtaining and renewing TLS certificates.
-- **[docs/tunnels-and-sync.md](docs/tunnels-and-sync.md)** — tunnel lifecycle, sync/disconnect, LAN forwarding, bandwidth throttling.
+- **[docs/tunnels-and-sync.md](docs/tunnels-and-sync.md)** — tunnel lifecycle, reconnect/disconnect, LAN forwarding, bandwidth throttling.
 - **[docs/configuration.md](docs/configuration.md)** — `home.yaml` and `config.yaml` reference (including reaching the Home Console from your LAN), portability, running multiple profiles side by side.
 - **[docs/running-as-a-service.md](docs/running-as-a-service.md)** — auto-starting `cah.py start` on boot with systemd (no Docker).
 - **[docs/architecture.md](docs/architecture.md)** — directory layout, components, design rationale, the cloud REST API surface — for anyone modifying this repo.

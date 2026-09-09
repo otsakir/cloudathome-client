@@ -37,7 +37,7 @@ Notes:
   `providers/<profile>/` and its SSH key, not root.
 - `After=network-online.target` / `Wants=network-online.target` delays startup
   until the network is actually up — `start` refreshes inbound port ranges and
-  syncs tunnels against the cloud server on every launch (see
+  reconnects tunnels against the cloud server on every launch (see
   [tunnels-and-sync.md](tunnels-and-sync.md)), both of which need connectivity.
 - `Restart=on-failure` auto-recovers the process if it dies (e.g. the cloud is
   briefly unreachable), which a manual `&` doesn't give you.

@@ -1,4 +1,4 @@
-# Tunnels, sync, and bandwidth
+# Tunnels, reconnecting, and bandwidth
 
 ## How tunnels work
 
@@ -37,7 +37,7 @@ a form submits.
 From a proxy entry's detail page:
 
 - **Open tunnel / Close tunnel** — manually open or close a single tunnel.
-- **Sync** — force-reconnect: tears down and re-establishes both the cloud
+- **Reconnect** — force-reconnect: tears down and re-establishes both the cloud
   mapping and the SSH tunnel for this entry, even if the local tunnel process
   still looks alive (it may be a stale connection to a cloud server that has
   since restarted). Use this to recover a single entry after a crash or restart.
@@ -46,28 +46,28 @@ From a proxy entry's detail page:
 
 From the dashboard:
 
-- **Connect all** — syncs every proxy entry at once. `python cah.py start`
-  already does this automatically on every launch (skip with `--no-sync`); use
-  this button to reconnect without restarting the console.
+- **Connect all** — reconnects every proxy entry at once. `python cah.py start`
+  already does this automatically on every launch (skip with `--no-reconnect`);
+  use this button to reconnect without restarting the console.
 - **Disconnect all** — closes all tunnels and removes all cloud proxy mappings
   cleanly.
 
 ## Management command
 
-The same sync operations are available from the command line:
+The same reconnect/disconnect operations are available from the command line:
 
 ```bash
-# Sync all entries
-python manage.py sync_tunnels
+# Reconnect all entries
+python manage.py reconnect_tunnels
 
-# Sync one entry by domain name
-python manage.py sync_tunnels --domain mysite.example.com
+# Reconnect one entry by domain name
+python manage.py reconnect_tunnels --domain mysite.example.com
 
 # Disconnect all entries
-python manage.py sync_tunnels --disconnect
+python manage.py reconnect_tunnels --disconnect
 
 # Disconnect one entry
-python manage.py sync_tunnels --domain mysite.example.com --disconnect
+python manage.py reconnect_tunnels --domain mysite.example.com --disconnect
 ```
 
 ## Bandwidth throttling

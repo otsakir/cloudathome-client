@@ -141,8 +141,9 @@ def test_tunnel_death_is_reflected_in_db_without_viewing_any_page(tunnel_logger_
          patch('domains.services.threading.Thread', _CapturingThread):
         pid = TunnelService.open_tunnel(entry)
 
-    # Mirror exactly what a real caller (TunnelToggleView / SyncService.sync_entry)
-    # does right after open_tunnel() returns: optimistically record it as open.
+    # Mirror exactly what a real caller (TunnelToggleView /
+    # TunnelConnectionService.reconnect_entry) does right after open_tunnel()
+    # returns: optimistically record it as open.
     entry.tunnel_pid = pid
     entry.tunnel_status = ProxyEntry.TUNNEL_OPEN
     entry.save()
@@ -157,9 +158,10 @@ def test_tunnel_death_is_reflected_in_db_without_viewing_any_page(tunnel_logger_
 
 @pytest.mark.django_db
 def test_stale_exit_handler_does_not_clobber_a_newer_tunnel(tunnel_logger_cleanup):
-    """If the entry has since been reconnected with a new pid (e.g. a Sync
-    raced ahead of the old process actually dying), a late exit-handler for
-    the *old* pid must be a no-op, not stomp the newer state."""
+    """If the entry has since been reconnected with a new pid (e.g. a
+    reconnect raced ahead of the old process actually dying), a late
+    exit-handler for the *old* pid must be a no-op, not stomp the newer
+    state."""
     domain = Domain.objects.create(name='mysite.example.com')
     entry = ProxyEntry.objects.create(
         domain=domain, scheme=ProxyEntry.SCHEME_HTTP, home_port=8080, tunnel_port=2000,

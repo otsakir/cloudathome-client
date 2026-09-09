@@ -10,8 +10,8 @@ from domains.views import (
     IssueCertificateView,
     ProxyEntryCreateView,
     ProxyEntryDetailView,
-    SyncAllView,
-    SyncEntryView,
+    ReconnectAllView,
+    ReconnectEntryView,
     TcpProxyEntryCreateView,
     TunnelToggleView,
 )
@@ -19,7 +19,7 @@ from domains.views import (
 urlpatterns = [
     path('', DomainListView.as_view(), name='domain_list'),
     path('add/', AddDomainView.as_view(), name='add_domain'),
-    path('sync/', SyncAllView.as_view(), name='sync_all'),
+    path('reconnect/', ReconnectAllView.as_view(), name='reconnect_all'),
     path('disconnect/', DisconnectAllView.as_view(), name='disconnect_all'),
     path('<int:pk>/', DomainDetailView.as_view(), name='domain_detail'),
     path('<int:pk>/delete/', DeleteDomainView.as_view(), name='delete_domain'),
@@ -28,6 +28,6 @@ urlpatterns = [
     path('proxy-entries/<int:pk>/', ProxyEntryDetailView.as_view(), name='proxy_entry_detail'),
     path('proxy-entries/<int:pk>/delete/', DeleteProxyEntryView.as_view(), name='delete_proxy_entry'),
     path('proxy-entries/<int:pk>/tunnel/', TunnelToggleView.as_view(), name='tunnel_toggle'),
-    path('proxy-entries/<int:pk>/sync/', SyncEntryView.as_view(), name='sync_entry'),
+    path('proxy-entries/<int:pk>/reconnect/', ReconnectEntryView.as_view(), name='reconnect_entry'),
     path('proxy-entries/<int:pk>/issue-certificate/', IssueCertificateView.as_view(), name='issue_certificate'),
 ]

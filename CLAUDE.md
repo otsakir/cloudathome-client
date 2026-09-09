@@ -29,13 +29,13 @@ pip install -r django/requirements.txt
 python cah.py register [profile] --token <token> [--cloudserver-url URL]
 
 # Start the Home Console for a profile (auto-assigned port, auto-reconnects tunnels)
-python cah.py start <profile> [--port PORT] [--no-sync]
+python cah.py start <profile> [--port PORT] [--no-reconnect]
 
 # List registered profiles (local only, no network calls)
 python cah.py list
 
 # Deregister a profile from its cloud server and delete it locally
-python cah.py remove <profile> [--yes]
+python cah.py remove <profile> [--yes] [--force]
 ```
 
 `register`'s profile name is a plain positional argument; if omitted, one is derived from the cloud server's hostname. `--cloudserver-url` is optional too — it falls back to `default_cloudserver_url` in an optional `home.yaml` (see `home.yaml.example`), or otherwise a hardcoded public demo server.
@@ -48,7 +48,7 @@ cd django
 
 HOME_CONFIG=../providers/<profile>/config.yaml python manage.py runserver 0.0.0.0:8001
 HOME_CONFIG=../providers/<profile>/config.yaml python manage.py migrate
-HOME_CONFIG=../providers/<profile>/config.yaml python manage.py sync_tunnels
+HOME_CONFIG=../providers/<profile>/config.yaml python manage.py reconnect_tunnels
 HOME_CONFIG=../providers/<profile>/config.yaml python manage.py deregister
 ```
 
@@ -82,7 +82,7 @@ The two sharpest landmines, worth keeping front-of-mind without a doc hop:
   here silently dropped every delete because the client built the wrong URL
   shape. The two repos no longer share a single commit history, so this can
   drift silently.
-- **`SyncService.sync_entry`** always tears down and re-establishes both the
-  cloud mapping and the SSH tunnel — never trust a "still running" tunnel PID as
-  proof it's still connected to the *current* cloud instance; a local ssh
-  client can outlive the cloud restarting under it.
+- **`TunnelConnectionService.reconnect_entry`** always tears down and
+  re-establishes both the cloud mapping and the SSH tunnel — never trust a
+  "still running" tunnel PID as proof it's still connected to the *current*
+  cloud instance; a local ssh client can outlive the cloud restarting under it.

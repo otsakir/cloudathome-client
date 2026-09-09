@@ -30,7 +30,7 @@
 </table>
 
 <h2>Tunnels</h2>
-<form method="post" action="{% url 'sync_all' %}" style="display:inline">
+<form method="post" action="{% url 'reconnect_all' %}" style="display:inline">
   {% csrf_token %}
   <button type="submit">Connect all</button>
 </form>

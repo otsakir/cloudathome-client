@@ -85,7 +85,7 @@ def _on_tunnel_process_exited(entry_pk, pid, returncode):
     whatever reason -- a stale host key, the cloud restarting, the network
     dropping, an explicit kill. A conditional UPDATE (not fetch-then-save):
     only touches the row if it *still* thinks this pid is its live tunnel, so
-    this can't clobber a newer state a concurrent open/close/sync_entry call
+    this can't clobber a newer state a concurrent open/close/reconnect_entry call
     already wrote (e.g. tunnel_pid was reassigned or cleared before this ran).
     If it does still match, nobody told this tunnel to stop -- it died on its
     own -- so mark it as an error instead of leaving a stale "open" status
@@ -259,10 +259,10 @@ class TunnelService:
             pass  # process already gone, nothing to do
 
 
-class SyncService:
+class TunnelConnectionService:
 
     @staticmethod
-    def sync_entry(entry):
+    def reconnect_entry(entry):
         """Tear down and re-establish both the cloud mapping and the tunnel for one
         entry. Always forces a fresh tunnel rather than trusting a still-running
         local ssh process: a process can outlive the cloud restarting under it
@@ -283,7 +283,7 @@ class SyncService:
             else:
                 client.delete_proxy_mapping(entry.scheme, host=entry.domain.name)
         except CloudServerError as e:
-            logger.info('sync_entry %r: no stale cloud mapping to remove (%s)', entry, e)
+            logger.info('reconnect_entry %r: no stale cloud mapping to remove (%s)', entry, e)
 
         try:
             if entry.scheme == ProxyEntry.SCHEME_TCP:
@@ -308,18 +308,18 @@ class SyncService:
         entry.save()
 
     @staticmethod
-    def sync_all():
-        """Sync every ProxyEntry. Returns (succeeded, failed) counts."""
+    def reconnect_all():
+        """Reconnect every ProxyEntry. Returns (succeeded, failed) counts."""
         from domains.models import ProxyEntry
         entries = list(ProxyEntry.objects.select_related('domain').all())
         succeeded = 0
         failed = 0
         for entry in entries:
             try:
-                SyncService.sync_entry(entry)
+                TunnelConnectionService.reconnect_entry(entry)
                 succeeded += 1
             except Exception:
-                logger.exception('sync_all: failed to sync entry %r', entry)
+                logger.exception('reconnect_all: failed to reconnect entry %r', entry)
                 failed += 1
         return succeeded, failed
 
@@ -346,6 +346,6 @@ class SyncService:
         """Close tunnels and remove cloud mappings for every ProxyEntry."""
         from domains.models import ProxyEntry
         for entry in ProxyEntry.objects.select_related('domain').all():
-            SyncService.disconnect_entry(entry)
+            TunnelConnectionService.disconnect_entry(entry)
 
 
