@@ -75,7 +75,13 @@ aren't obvious from reading a single file in isolation.
   dedicated `logging.Logger` per entry (`_get_tunnel_logger`) fed by a daemon
   thread (`_pump_tunnel_output`) — this is additive to, not a replacement for,
   the console/`journalctl` output an inherited fd would otherwise give, so
-  nothing regresses there. `SyncService.sync_entry`
+  nothing regresses there. That same thread is also what makes an unexpected
+  tunnel death visible without anyone loading a page: on exit it calls
+  `_on_tunnel_process_exited`, which flips the `ProxyEntry`'s status to `error`
+  and clears its pid via a conditional `UPDATE ... WHERE pid = <this pid>` (not
+  fetch-then-save) — guarding against a race where the entry has since been
+  reassigned a newer pid by a concurrent open/sync, which must never be
+  clobbered by a stale exit-handler for the old one. `SyncService.sync_entry`
   always tears down and re-establishes both the cloud mapping and the tunnel
   (never trusts a "still running" PID as proof the tunnel is still connected to
   the *current* cloud instance — a local ssh client can outlive the cloud

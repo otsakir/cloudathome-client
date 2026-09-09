@@ -4,8 +4,15 @@
 
 Tunnels are OS-level SSH processes (`ssh -R <tunnel_port>:<home_host>:<home_port>
 ...`). Their PIDs are stored in the database so they can be stopped cleanly even
-after a Django restart. If a tunnel process dies unexpectedly, the status is
-corrected automatically the next time the proxy entry page is loaded.
+after a Django restart. If a tunnel process dies unexpectedly (for any reason —
+a stale SSH host key, the cloud restarting, a network drop, ...), that's
+detected and reflected into the database (status flips to `error`, the stored
+pid is cleared) the moment it happens, not just the next time you happen to
+load that proxy entry's page — a background thread started alongside the
+tunnel notices the process exit directly and also logs a warning at that
+point. That's the one place (`domains.services._on_tunnel_process_exited`) to
+hook further handling of an unexpected drop, if you want one (auto-retry,
+a notification, etc.).
 
 SSH process output (stdout/stderr) still reaches the Home Console's own
 terminal/`journalctl` exactly as before — for example, if the local service is

@@ -56,11 +56,12 @@ def _get_tunnel_logger(entry):
     return tlogger
 
 
-def _pump_tunnel_output(proc, tlogger):
+def _pump_tunnel_output(proc, tlogger, entry_pk):
     """Runs in a daemon thread for the lifetime of one tunnel process: forwards
-    its (merged stdout+stderr) output line by line into tlogger, then logs an
-    exit marker once the pipe closes -- this is what makes a drop visible in
-    the log itself instead of just going quiet."""
+    its (merged stdout+stderr) output line by line into tlogger, then -- once
+    the pipe closes, meaning the process exited -- logs an exit marker and
+    reflects the death into the database immediately, rather than leaving a
+    stale 'open' status for something else to notice later."""
     try:
         for line in proc.stdout:
             tlogger.info(line.rstrip('\n'))
@@ -76,6 +77,34 @@ def _pump_tunnel_output(proc, tlogger):
         except subprocess.TimeoutExpired:
             returncode = proc.poll()
         tlogger.info('--- tunnel process exited (pid %s, exit code %s) ---', proc.pid, returncode)
+        _on_tunnel_process_exited(entry_pk, proc.pid, returncode)
+
+
+def _on_tunnel_process_exited(entry_pk, pid, returncode):
+    """Called from the pump thread the moment a tunnel's ssh process exits, for
+    whatever reason -- a stale host key, the cloud restarting, the network
+    dropping, an explicit kill. A conditional UPDATE (not fetch-then-save):
+    only touches the row if it *still* thinks this pid is its live tunnel, so
+    this can't clobber a newer state a concurrent open/close/sync_entry call
+    already wrote (e.g. tunnel_pid was reassigned or cleared before this ran).
+    If it does still match, nobody told this tunnel to stop -- it died on its
+    own -- so mark it as an error instead of leaving a stale "open" status
+    that would otherwise only get corrected the next time someone happens to
+    load this entry's detail page.
+
+    This is the one place to hook additional handling for an unexpected drop
+    (e.g. an auto-retry, a notification/webhook) -- it already knows the pid,
+    the exit code, and has the entry's pk to look up.
+    """
+    from domains.models import ProxyEntry
+    updated = ProxyEntry.objects.filter(pk=entry_pk, tunnel_pid=pid).update(
+        tunnel_pid=None, tunnel_status=ProxyEntry.TUNNEL_ERROR,
+    )
+    if updated:
+        logger.warning(
+            'Tunnel for proxy entry %s (pid %s) exited unexpectedly (exit code %s); marked as error',
+            entry_pk, pid, returncode,
+        )
 
 
 class CertbotError(Exception):
@@ -208,7 +237,7 @@ class TunnelService:
         )
         tlogger = _get_tunnel_logger(entry)
         tlogger.info('--- tunnel opened (pid %s) ---', proc.pid)
-        threading.Thread(target=_pump_tunnel_output, args=(proc, tlogger), daemon=True).start()
+        threading.Thread(target=_pump_tunnel_output, args=(proc, tlogger, entry.pk), daemon=True).start()
         return proc.pid
 
     @staticmethod
