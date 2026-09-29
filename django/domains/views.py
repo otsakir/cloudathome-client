@@ -331,9 +331,11 @@ class TunnelToggleView(View):
                 pid = TunnelService.open_tunnel(entry)
                 entry.tunnel_pid = pid
                 entry.tunnel_status = ProxyEntry.TUNNEL_OPEN
+                entry.tunnel_error = ''
             except Exception as e:
                 logger.exception('Failed to open tunnel for proxy entry %r', entry)
                 entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
+                entry.tunnel_error = str(e)
                 messages.error(request, f'Failed to open tunnel: {e}')
         entry.save()
         return redirect('proxy_entry_detail', pk=entry.pk)

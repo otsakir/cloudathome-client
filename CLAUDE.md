@@ -86,3 +86,9 @@ The two sharpest landmines, worth keeping front-of-mind without a doc hop:
   re-establishes both the cloud mapping and the SSH tunnel — never trust a
   "still running" tunnel PID as proof it's still connected to the *current*
   cloud instance; a local ssh client can outlive the cloud restarting under it.
+  On failure it records the reason in `ProxyEntry.tunnel_error` (shown in the
+  UI while `tunnel_status` is `error`), since `reconnect_all` runs unattended
+  and only logs. The main case: the cloud operator shrank the HTTP/HTTPS
+  inbound range, so re-registering an entry's stored `public_port` gets the
+  cloud's `code: public_port_not_offered` 400, which `create_proxy_mapping`
+  raises as `PublicPortNotOfferedError` (message lists the ports still offered).

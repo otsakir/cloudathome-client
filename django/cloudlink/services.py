@@ -7,6 +7,24 @@ class CloudServerError(Exception):
     pass
 
 
+class PublicPortNotOfferedError(CloudServerError):
+    """The cloud refused a mapping's public_port as outside what it currently
+    offers for the scheme (its `code: public_port_not_offered` 400). For a
+    mapping being re-registered, this means the cloud operator changed the
+    inbound port range since the mapping was created."""
+
+    def __init__(self, public_port, default_port, ranges):
+        self.public_port = public_port
+        self.default_port = default_port
+        self.ranges = ranges
+        offered = [str(default_port)] + [
+            f'{r["port_base"]}–{r["port_base"] + r["port_count"] - 1}' for r in ranges
+        ]
+        super().__init__(
+            f'port {public_port} is not offered by the cloud server (available: {", ".join(offered)})'
+        )
+
+
 class CloudServerClient:
 
     def _headers(self):
@@ -35,6 +53,13 @@ class CloudServerClient:
             if public_port is not None:
                 payload['public_port'] = public_port
         resp = requests.post(url, headers=self._headers(), json=payload)
+        if resp.status_code == 400:
+            try:
+                body = resp.json()
+            except ValueError:
+                body = {}
+            if isinstance(body, dict) and body.get('code') == 'public_port_not_offered':
+                raise PublicPortNotOfferedError(public_port, body['default_port'], body['ranges'])
         if resp.status_code != 201:
             raise CloudServerError(f'create_proxy_mapping failed: {resp.status_code} {resp.text}')
         return resp.json()

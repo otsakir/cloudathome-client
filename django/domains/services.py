@@ -295,20 +295,26 @@ class TunnelConnectionService:
                 # default instead of the port this entry actually uses.
                 result = client.create_proxy_mapping(entry.scheme, host=entry.domain.name, public_port=entry.public_port)
             entry.tunnel_port = result['tunnel_port']
-        except CloudServerError:
+        except CloudServerError as e:
+            # Recorded on the entry, not just raised: reconnect_all() (run
+            # unattended after a cloud restart) only logs failures, so this is
+            # how the user later sees e.g. PublicPortNotOfferedError's reason.
             entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
+            entry.tunnel_error = str(e)
             entry.save()
             raise
 
         try:
             pid = TunnelService.open_tunnel(entry)
             entry.tunnel_pid = pid
-        except Exception:
+        except Exception as e:
             entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
+            entry.tunnel_error = str(e)
             entry.save()
             raise
 
         entry.tunnel_status = ProxyEntry.TUNNEL_OPEN
+        entry.tunnel_error = ''
         entry.save()
 
     @staticmethod

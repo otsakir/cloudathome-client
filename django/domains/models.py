@@ -48,6 +48,10 @@ class ProxyEntry(models.Model):
     tunnel_port = models.IntegerField()
     tunnel_pid = models.IntegerField(null=True, blank=True)
     tunnel_status = models.CharField(max_length=6, choices=TUNNEL_STATUS_CHOICES, default=TUNNEL_CLOSED)
+    # Why tunnel_status last became TUNNEL_ERROR, when known (e.g. the cloud no
+    # longer offering this entry's public_port). Only meaningful while
+    # tunnel_status is TUNNEL_ERROR; cleared on the next successful open.
+    tunnel_error = models.TextField(blank=True, default='')
 
     # HTTP/HTTPS only
     domain = models.ForeignKey(Domain, null=True, blank=True, on_delete=models.CASCADE, related_name='proxy_entries')

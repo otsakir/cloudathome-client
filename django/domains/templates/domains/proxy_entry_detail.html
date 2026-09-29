@@ -39,6 +39,9 @@
     </td>
   </tr>
   <tr><th>Tunnel status</th><td>{{ object.tunnel_status }}</td></tr>
+  {% if object.tunnel_status == 'error' and object.tunnel_error %}
+  <tr><th>Error</th><td>{{ object.tunnel_error }}</td></tr>
+  {% endif %}
 </table>
 
 <h2>Tunnel</h2>
