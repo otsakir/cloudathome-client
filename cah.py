@@ -6,7 +6,7 @@ Usage:
     python cah.py register [myhome] --token <api-token-from-the-dashboard> [--cloudserver-url URL]
     python cah.py start myhome [--port PORT] [--no-reconnect]
     python cah.py list
-    python cah.py remove myhome [--yes] [--force]
+    python cah.py remove myhome [-y|--yes] [-f|--force]
 
 Each registration gets its own profile directory under providers/<profile>/, so the
 same client can stay connected to several cloud servers side by side (one `runserver`
@@ -380,7 +380,8 @@ def cmd_remove(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Manage CloudAtHome home-side profiles')
+    parser = argparse.ArgumentParser(description='Manage CloudAtHome home-side profiles',
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
     subparsers = parser.add_subparsers(dest='command', required=True)
 
     p_register = subparsers.add_parser('register', help='Register this home with a cloud server')
@@ -397,7 +398,7 @@ def main():
                                   'dedicated keypair for this profile)')
     p_register.add_argument('--private-key', type=Path, default=None,
                              help='Path to an existing SSH private key (must be given together with --public-key)')
-    p_register.add_argument('--output', '-o', type=Path, default=None,
+    p_register.add_argument('-o', '--output', type=Path, default=None,
                              help='Output path for config.yaml (default: providers/<profile>/config.yaml)')
     p_register.set_defaults(func=cmd_register)
 
@@ -414,11 +415,21 @@ def main():
 
     p_remove = subparsers.add_parser('remove', help='Deregister a profile from its cloud server and delete it locally')
     p_remove.add_argument('profile', help='Profile name (see: python cah.py list)')
-    p_remove.add_argument('--yes', '-y', action='store_true', help='Skip the confirmation prompt')
-    p_remove.add_argument('--force', '-f', action='store_true',
+    p_remove.add_argument('-y', '--yes', action='store_true', help='Skip the confirmation prompt')
+    p_remove.add_argument('-f', '--force', action='store_true',
                            help='Delete the profile locally even if the cloud server is unreachable '
                                 'or refuses to release the home slot / revoke the token')
     p_remove.set_defaults(func=cmd_remove)
+
+    # Show every subcommand's flags in the top-level -h, built from the
+    # subparsers themselves so it can't drift from the real options.
+    # Swapping format_usage()'s 7-char "usage: " for a 2-space indent, so
+    # wrapped continuation lines shift left by the same 5 to stay aligned.
+    usages = []
+    for sub in (p_register, p_start, p_list, p_remove):
+        first, *rest = sub.format_usage().rstrip().splitlines()
+        usages.append('\n'.join(['  ' + first.removeprefix('usage: ')] + [line[5:] for line in rest]))
+    parser.epilog = 'commands:\n' + '\n'.join(usages) + '\n\nRun "cah.py <command> -h" for details on a command\'s options.'
 
     args = parser.parse_args()
     args.func(args)

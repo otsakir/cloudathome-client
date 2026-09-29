@@ -1,22 +1,35 @@
 ## About
 
-**CloudAtHome Client** is the home-side component of [CloudAtHome](https://github.com/otsakir/cloudathome) — a system that lets you run application servers at home and reach them from the internet via a cloud proxy, without opening any inbound firewall ports on your home network.
+**CloudAtHome client** is the home-side component of [CloudAtHome](https://github.com/otsakir/cloudathome), a system that lets you run application servers 
+at home and reach them from the internet via a cloud proxy. All traffic passes outgoing SSH tunnels and no further 
+configuration is required for your router.
 
-This repo is everything you run **at home**: a single CLI (`cah.py`) to register with a cloud server and manage the connection, plus a small Django app (the "Home Console") that manages HTTP/HTTPS forwards, TCP forwards, TLS certificates, and the SSH reverse tunnels themselves.
+This repo is everything you run **at home**. It consists of `cah.py`, a cli that _registers_ with a cloud server and 
+manages the connection, plus "Home console", a small Django app that controls SSH revdrse tunnels for incoming traffic and 
+TLS certificates.
 
-The cloud-side component (HAProxy + the Django API/SSH server that homes connect to) lives in a separate repo: **[otsakir/cloudathome](https://github.com/otsakir/cloudathome)**. You need access to a running cloud server (your own, or someone else's) to use this client — see that repo if you need to stand one up yourself.
+The whole process goes like this:
 
-In short: register with a cloud server, register a domain you control, add a forward, open its tunnel, get it a certificate if you need to. Incoming traffic hits the cloud server's HAProxy and is routed to your home machine through the tunnel — by SNI hostname for HTTPS, host header for HTTP or by public port for TCP.
+* register an account on a cloud server
+* register a domain you control
+* add a port forward
+* open its tunnel
+* get it a certificate if you need to. 
+
+Incoming traffic will now reach the cloud server's HAProxy and be routed to your home machine through the tunnel.
+Routing will be based both on hostname (host http header or SNI SNI hostname for HTTPS) and public port.
 
 ## Prerequisites
 
 - Python 3.11+
 - `certbot` CLI installed on the home machine (e.g. `sudo apt install certbot` or `pip install certbot`) if you want to issue certificates through this client.
-- A registered, active account on the target cloud server (self-register at `<cloud-server-url>/signup/`, then wait for an admin to activate it — `<cloud-server-url>` is whatever base URL that server is reachable at, e.g. `https://cloud.example.com`; there's no fixed port, it depends on how that server is deployed)
+- A registered, active account on a cloud server. Check out this experimental [demo server](http://cloudathome.retalia.org/) or roll out your own.
 
 ## Setup
 
-After downloading or cloning this repo, install the Python dependencies once, up front. `cah.py` itself only needs `requests`/`pyyaml`, but it shells out to the Home Console's `manage.py` (migrations, tunnel sync, running the server), which needs the full Django environment — so a single virtualenv, installed from `django/requirements.txt`, covers both:
+Download or clone this repo and install Python dependencies. You will use `cah.py`, the client's CLI tool.
+Set up a virtual env end install its dependencies. For its full functionality the CLI needs django deps for 
+migrations, tunnel sync, running the server etc. You'd better install those upfront.
 
 ```bash
 python -m venv .venv
@@ -26,54 +39,62 @@ pip install -r django/requirements.txt
 
 Run these from the repo root, so the virtualenv sits next to `cah.py` as `.venv/`. Activate that same virtualenv (`source .venv/bin/activate`) any time you run `cah.py` or `manage.py` from a new shell.
 
-## Quickstart: zero to a publicly reachable service
 
-This assumes you already have access to a running cloud server with a public IP, and that a domain you control (e.g. `mysite.example.com`) points to it in DNS.
+## Cloud account & API token
 
-**1. Create and activate a cloud account** — go to `<cloud-server-url>/signup/` and register; an admin needs to activate the account before you can log in.
+Visit the cloud server and register for an account if you don't already have one. 
 
-**2. Generate an API token** — log in at `<cloud-server-url>/` (the cloud server's own dashboard), click **Generate an API token**, and copy it (shown once).
+    `<cloud-server-url>/signup/`
 
-**3. Install this client's dependencies (once)** — see [Setup](#setup) above.
+Note, an administrator needs to activate your account before you can log in. Once you log in, you'll
+have to generate an API token. 
 
-**4. Register the home**:
+
+## Home registration
+
+After obtraining an API token register your home with the cloud server.
+
 ```bash
-python cah.py register \
-    --cloudserver-url <cloud-server-url> \
-    --token <token-from-the-cloud-dashboard>
+  python cah.py register profile-name --cloudserver-url http://localhost --token xxxxxxxxx
 ```
 
-**5. Start the Home Console**:
+## Home Console
+
+Home Console is a web application you will use for administering your home system. Setting up 
+tunnels, forwarded domain names and public ports are typical tasks you can perform from it.
+
+Start the Home Console
+
 ```bash
-python cah.py start <profile>
+python cah.py start <profile-name>
 ```
 
-**6. Register a base domain** — on the Home Console's dashboard (`http://localhost:<port>/`), click **Register base domain**, enter `mysite.example.com`, submit.
+### Base & forwarded domains and proxy entries
 
-**7. Add a domain and proxy entry** — go to `http://localhost:<port>/domains/add/`, enter `mysite.example.com`; from the domain detail page click **Add**, choose scheme `http` and a local port for certbot (e.g. `8082`).
+Base domains work like a DNS naming scope owned by a home. A home registers them to the cloud server and all requests 
+targeting a domain (or nested subdomains ) can potentially be forwarded to the home. No other home can claim routing
+for this naming branch. The `base domain` concept is about naming scope and ownership.
 
-**8. Open the tunnel and get a certificate** — click **Open tunnel**, then **Issue certificate** with your email. (There's also a one-click **Issue certificate** playbook on the Home Console's dashboard that does steps 7–8 in one go — see [docs/forwards-and-certificates.md](docs/forwards-and-certificates.md#obtaining-a-tls-certificate).)
+Actually forwarding traffic for a specific domain will require a `forwarded domain` entity to be in place. Create one from
+the client Dashboard, under "HTTP(s) forwarded domains".
 
-**9. Add an HTTPS proxy entry and open its tunnel** — back on the domain detail page, click **Add** again, choose scheme `https` this time, pick the local port your actual TLS-terminated service listens on, then open its tunnel too. (The HTTP entry from step 7 can stay — a domain can hold one of each, which is also what lets you renew the certificate later without taking this HTTPS forward down.)
+Almost done. Create a `proxy entry` under a `forwarded domain` to actually set up a reverse tunnel to your home. Configure
+'Scheme' as http or https, the public listening port on the cloud server and the local port on your home network to forward
+traffic to.
 
-**10. Test**:
-```bash
-curl https://mysite.example.com
-```
+### Getting certificates
 
-**11. Dismantle service** when your services reach their end of life. Tunnels, cloud registration, and local files all get cleaned up in one go if you ever want to fully remove this profile:
-```bash
-python cah.py remove <profile>
-```
+TBD
 
-## Everyday commands
+
+## CLI
 
 | Command | What it does |
 |---------|---------------|
 | `python cah.py register [profile] --token <token> [--cloudserver-url URL]` | Register a new profile with a cloud server. |
 | `python cah.py start <profile> [--port PORT] [--no-reconnect]` | Start the Home Console for a profile (auto-assigned port, auto-reconnects tunnels). |
 | `python cah.py list` | List registered profiles — local only, no network calls. |
-| `python cah.py remove <profile> [--yes] [--force]` | Deregister a profile from its cloud server and delete it locally (`--force` deletes locally even if the cloud server is unreachable). |
+| `python cah.py remove <profile> [-y\|--yes] [-f\|--force]` | Deregister a profile from its cloud server and delete it locally (`-y`/`--yes` skips the confirmation prompt; `-f`/`--force` deletes locally even if the cloud server is unreachable or refuses to deregister). |
 
 Run `python cah.py <command> --help` for the full set of flags.
 

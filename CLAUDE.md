@@ -35,7 +35,7 @@ python cah.py start <profile> [--port PORT] [--no-reconnect]
 python cah.py list
 
 # Deregister a profile from its cloud server and delete it locally
-python cah.py remove <profile> [--yes] [--force]
+python cah.py remove <profile> [-y|--yes] [-f|--force]
 ```
 
 `register`'s profile name is a plain positional argument; if omitted, one is derived from the cloud server's hostname. `--cloudserver-url` is optional too — it falls back to `default_cloudserver_url` in an optional `home.yaml` (see `home.yaml.example`), or otherwise a hardcoded public demo server.
