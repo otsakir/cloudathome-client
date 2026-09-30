@@ -147,6 +147,13 @@ def cmd_register(args):
 
     cloudserver_url = args.cloudserver_url or _resolve_default_cloudserver_url()
     base_url = cloudserver_url.rstrip('/')
+    if args.cloudserver_url:
+        source = '--cloudserver-url'
+    elif _load_home_yaml().get('default_cloudserver_url'):
+        source = 'default_cloudserver_url in home.yaml'
+    else:
+        source = 'built-in default -- pass --cloudserver-url to use another server'
+    print(f'Registering with cloud server {base_url} ({source})')
     ssh_host = urlparse(base_url).hostname
     providers_dir = _HOME_DIR / 'providers'
 
