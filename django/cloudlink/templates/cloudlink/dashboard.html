@@ -40,7 +40,7 @@
 </form>
 
 
-<h2>Base domains</h2>
+<h2>Domain scope</h2>
 {% if base_domains %}
   <table>
     <thead><tr><th>Domain</th><th></th></tr></thead>
@@ -63,7 +63,7 @@
 {% endif %}
 <p><a href="{% url 'add_base_domain' %}">Register base domain</a></p>
 
-<h2>HTTP(S) forwarded domains</h2>
+<h2>Forwarded domains - HTTP/HTTPS</h2>
 {% if domains %}
   <table>
     <thead><tr><th>Name</th><th>Cert status</th><th>Expiry</th><th>Tunnel</th><th>Listening (local/home port)</th></tr></thead>
@@ -84,7 +84,7 @@
 {% endif %}
 <p>{% if not domains %}<a href="{% url 'add_domain' %}">Add</a>{% endif %} <a href="{% url 'domain_list' %}">Manage</a></p>
 
-<h2>TCP forwards</h2>
+<h2>Forwarded ports - TCP</h2>
 {% if tcp_entries %}
   <table>
     <thead><tr><th>Public port</th><th>Home</th><th>Tunnel port</th><th>Status</th><th>Listening</th></tr></thead>
