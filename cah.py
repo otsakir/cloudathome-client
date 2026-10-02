@@ -236,6 +236,8 @@ def cmd_register(args):
         with open(output_path, 'w') as f:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
+        _refresh_inbound_port_ranges(config, output_path)
+
     profile_name = profile_dir.name
     print(f'\nDone. Configuration written to: {output_path}')
     print(f'  home_slug    : {home["slug"]}')
@@ -257,11 +259,11 @@ def cmd_register(args):
 
 
 def _refresh_inbound_port_ranges(data, config_path):
-    """Re-fetch the cloud's current shared HTTP/HTTPS inbound port ranges and cache
-    them into config.yaml. Runs on every `start` (not just the one-time `register`)
-    since these ranges are global cloud-side config that can change independently of
-    this home's own registration -- a value cached only at register could go stale
-    indefinitely."""
+    """Re-fetch the cloud's current HTTP/HTTPS inbound ports -- the scheme's default
+    port plus its shared alternate range -- and cache them into config.yaml. Runs at
+    `register` and again on every `start`, since these are global cloud-side config
+    that can change independently of this home's own registration -- a value cached
+    only at register could go stale indefinitely."""
     cl = data.setdefault('cloudlink', {})
     base_url = cl.get('cloudserver_url', '').rstrip('/')
     token = cl.get('auth_token')
@@ -276,12 +278,19 @@ def _refresh_inbound_port_ranges(data, config_path):
                 timeout=5,
             )
             resp.raise_for_status()
-            ranges = resp.json().get('ranges') or []
-        except requests.RequestException as e:
+            body = resp.json()
+        except (requests.RequestException, ValueError) as e:
             print(f'Warning: could not refresh {scheme} port range ({e}); keeping cached value.', file=sys.stderr)
             continue
+        ranges = body.get('ranges') or []
+        new_val = {}
+        # Older clouds don't return default_port; Django then falls back to 80/443.
+        if body.get('default_port') is not None:
+            new_val['default'] = body['default_port']
+        if ranges:
+            new_val.update(base=ranges[0]['port_base'], count=ranges[0]['port_count'])
+        new_val = new_val or None
         key = f'{scheme}_ports'
-        new_val = {'base': ranges[0]['port_base'], 'count': ranges[0]['port_count']} if ranges else None
         if cl.get(key) != new_val:
             changed = True
             if new_val is None:

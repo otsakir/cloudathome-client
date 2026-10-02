@@ -39,6 +39,11 @@ class CloudConfig:
     http_port_count: int | None = None
     https_port_base: int | None = None
     https_port_count: int | None = None
+    # The cloud's standard port per scheme (its HTTP_INBOUND_DEFAULT_PORT/
+    # HTTPS_INBOUND_DEFAULT_PORT), used when a mapping omits public_port.
+    # Operator-configurable cloud-side; 80/443 when not (yet) cached.
+    http_default_port: int = 80
+    https_default_port: int = 443
     # Directory containing the config file; used to resolve relative paths.
     config_dir: Path = field(default_factory=Path.cwd)
     # Absolute path to the SQLite database file, resolved at load time.
@@ -47,6 +52,15 @@ class CloudConfig:
     certbot_dir: Path = field(default_factory=lambda: Path('certbot'))
     certbot: CertbotConfig = field(default_factory=CertbotConfig)
     features: FeaturesConfig = field(default_factory=FeaturesConfig)
+
+    def inbound_ports(self, scheme):
+        """(default_port, range_base, range_count) the cloud offers for an
+        HTTP/HTTPS mapping; base/count are None when no alternate range is cached."""
+        if scheme == 'http':
+            return self.http_default_port, self.http_port_base, self.http_port_count
+        if scheme == 'https':
+            return self.https_default_port, self.https_port_base, self.https_port_count
+        raise ValueError(f'no inbound ports for scheme {scheme!r}')
 
 
 def load_config(path=None) -> CloudConfig:
@@ -107,6 +121,8 @@ def load_config(path=None) -> CloudConfig:
             http_port_count=http_ports.get('count'),
             https_port_base=https_ports.get('base'),
             https_port_count=https_ports.get('count'),
+            http_default_port=http_ports.get('default') or 80,
+            https_default_port=https_ports.get('default') or 443,
             config_dir=config_dir,
             database=db_path,
             certbot_dir=certbot_dir,

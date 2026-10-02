@@ -103,17 +103,22 @@ aren't obvious from reading a single file in isolation.
 - **`features.lan_forwarding`** (per-profile config, off by default) gates whether
   a proxy entry may forward to a home-network host other than `localhost` —
   otherwise `home_host` is forced to `localhost` regardless of what's submitted.
-- **HTTP/HTTPS inbound port range** (`cloudlink.http_ports`/`https_ports` in
-  `config.yaml`, mirroring `tcp_ports`'s `{base, count}` shape) is cloud-wide
-  config, not home-specific — `cah.py`'s `_refresh_inbound_port_ranges` re-fetches
-  it from `GET /api/config/inbound-ports/<scheme>/` on every `start` (not just the
-  one-time `register`, since this value can change independently of this home's
-  registration) and writes it back to `config.yaml` only if it changed.
-  `CloudConfig.http_port_base`/`http_port_count`/`https_port_base`/`https_port_count`
-  (`cloudlink/config.py`) surface it to `ProxyEntryForm`/`ProxyEntryCreateView`
-  (`domains/`) for client-side range validation before calling
+- **HTTP/HTTPS inbound ports** (`cloudlink.http_ports`/`https_ports` in
+  `config.yaml`: `{default, base, count}` — the cloud's default port for the
+  scheme plus its alternate range, mirroring `tcp_ports`'s `{base, count}`) are
+  cloud-wide config, not home-specific — `cah.py`'s `_refresh_inbound_port_ranges`
+  fetches them from `GET /api/config/inbound-ports/<scheme>/` at `register` and
+  again on every `start` (since they can change independently of this home's
+  registration) and writes them back to `config.yaml` only if they changed. The
+  default port is operator-configurable cloud-side, so nothing on the client
+  hardcodes 80/443 except as the fallback when it's not cached (an older cloud
+  that doesn't return `default_port`). `CloudConfig.inbound_ports(scheme)`
+  (`cloudlink/config.py`) surfaces `(default, base, count)` to `ProxyEntryForm`
+  (range validation in `clean_public_port`), `ProxyEntryCreateView` (resolving a
+  blank port for the duplicate check) and `ProxyEntry.__str__` (domains/), before calling
   `create_proxy_mapping(scheme, host=..., public_port=...)` — the cloud is still
-  authoritative and validates again server-side.
+  authoritative and validates again server-side; its `PublicPortNotOfferedError`
+  is shown on the form's `public_port` field.
 - **A `Domain` can hold more than one `ProxyEntry` per scheme, as long as they
   publish on different ports** (`domain` is a `ForeignKey` with
   `UniqueConstraint(['domain', 'scheme', 'public_port'])`, not the tighter
@@ -156,7 +161,7 @@ this side, the relevant surface (all via `CloudServerClient`, all
 | PATCH | `/api/homes/<slug>/` | bandwidth-limit form (`cloudlink/views.py`) |
 | GET/POST/DELETE | `/api/homes/<slug>/base-domains/...` | base-domain views (`cloudlink/views.py`) |
 | POST/DELETE | `/api/homes/<slug>/proxy-mappings/...` | `TunnelConnectionService`, `_delete_proxy_entry`, proxy-entry create views (`domains/`) |
-| GET | `/api/config/inbound-ports/<scheme>/` | `cah.py start`'s `_refresh_inbound_port_ranges` — called directly via `requests`, not through `CloudServerClient`, since it runs before Django/the profile config are bootstrapped (same reason `cmd_register` also calls the cloud with raw `requests`) |
+| GET | `/api/config/inbound-ports/<scheme>/` | `cah.py register`/`start`'s `_refresh_inbound_port_ranges` — called directly via `requests`, not through `CloudServerClient`, since it runs before Django/the profile config are bootstrapped (same reason `cmd_register` also calls the cloud with raw `requests`) |
 | DELETE | `/api/auth/token/` | `deregister` |
 
 Authentication is a DRF token generated on the cloud dashboard (`RotateTokenView`

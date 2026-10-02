@@ -53,7 +53,7 @@ field with inline comments. The fields worth calling out beyond the basics
 
 | Key | Default | Purpose |
 |-----|---------|---------|
-| `cloudlink.http_ports` / `cloudlink.https_ports` | unset | Cached copy of the cloud's shared alternate inbound port range. Auto-populated and refreshed by `cah.py start` on every launch — you don't set these by hand. See [forwards-and-certificates.md](forwards-and-certificates.md#custom-inbound-ports). |
+| `cloudlink.http_ports` / `cloudlink.https_ports` | unset | Cached copy of the cloud's default inbound port for the scheme (`default`; 80/443 when absent) and its shared alternate range (`base`/`count`). Auto-populated by `cah.py register` and refreshed by `cah.py start` on every launch — you don't set these by hand. See [forwards-and-certificates.md](forwards-and-certificates.md#custom-inbound-ports). |
 | `certbot.deploy_path` | unset | After a successful certificate issuance, copy `fullchain.pem`/`privkey.pem`/`chain.pem`/`cert.pem` to `<deploy_path>/<domain>/` — useful if another service (e.g. nginx) needs the certificate outside of certbot's own directory layout. Relative paths resolve against `config.yaml`'s own directory. Overridable per domain — see below. |
 | `features.lan_forwarding` | `false` | Allows a proxy entry's `home_host` to be something other than `localhost` (a LAN IP or hostname). Off by default: with it off, `home_host` is silently forced to `localhost` regardless of what's submitted in the form. Turn this on only if you actually forward to another machine on your home network. |
 

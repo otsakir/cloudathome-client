@@ -45,8 +45,8 @@ entry at any time without ever taking a live HTTPS forward down.
 
 ### Custom inbound ports
 
-By default, an HTTP/HTTPS proxy entry publishes on the cloud's standard port (80
-for HTTP, 443 for HTTPS). The cloud server may also advertise a shared alternate
+By default, an HTTP/HTTPS proxy entry publishes on the cloud's default port for
+the scheme (80 for HTTP, 443 for HTTPS, unless the cloud operator changed it). The cloud server may also advertise a shared alternate
 port range — useful if your network blocks outbound access to the standard
 ports, or you want more than one independent entry point for the same domain.
 This range is **not** allocated per-home like the TCP range; any home can use
@@ -54,16 +54,19 @@ any port in it, since collision protection there comes from hostnames not
 colliding across homes (enforced when registering base domains), not from the
 port itself.
 
-**From the Home Console:** the **Add proxy entry** page shows the currently
-advertised HTTP and HTTPS ranges (if the cloud offers one) alongside the
-**Public port** field. Leave it blank for the standard port, or enter a port
+**From the Home Console:** the **New proxy entry** page lists, per scheme, the
+cloud's default port and its alternate range (if it offers one) below the
+**Public port** field. Leave it blank for the default port, or enter a port
 from the range shown for the scheme you're adding. The cloud validates the port
-server-side regardless of what the form shows.
+server-side regardless of what the form shows; if it rejects it (the cached
+range was stale), the error appears on the **Public port** field with the ports
+the cloud currently offers.
 
-This range is cloud-wide config, not something you set — `python cah.py start`
-re-fetches it from the cloud (`GET /api/config/inbound-ports/<scheme>/`) every
-time and caches it into that profile's `config.yaml`
-(`cloudlink.http_ports`/`https_ports`), so it stays current across restarts
+The default port and range are cloud-wide config, not something you set —
+`python cah.py register` fetches them from the cloud
+(`GET /api/config/inbound-ports/<scheme>/`), `python cah.py start` re-fetches
+them every time, and both cache them into that profile's `config.yaml`
+(`cloudlink.http_ports`/`https_ports`), so they stay current across restarts
 without a network call on every page load. See
 [configuration.md](configuration.md#profile-configyaml).
 

@@ -40,16 +40,19 @@ cloudlink:
     # Number of public TCP ports available (one per TCP forward)
     count: 10
 
-  # http_ports / https_ports: the cloud's shared, system-wide inbound port range for
-  # HTTP/HTTPS proxy mappings (in addition to the always-available standard port,
-  # 80/443). Unlike ports/tcp_ports above, this is NOT specific to this home -- any
-  # home may use any port in it. Auto-populated (and kept fresh) by `cah.py start`;
+  # http_ports / https_ports: the cloud's default port for the scheme (`default`,
+  # used when a proxy entry leaves its public port blank -- 80/443 unless the cloud
+  # operator changed it) plus its shared, system-wide alternate range (`base`/`count`).
+  # Unlike ports/tcp_ports above, this is NOT specific to this home -- any home may
+  # use any port in it. Auto-populated (and kept fresh) by `cah.py register`/`start`;
   # you don't need to set these by hand.
   http_ports:
+    default: 80
     base: 8080
     count: 101
 
   https_ports:
+    default: 443
     base: 8443
     count: 101
 

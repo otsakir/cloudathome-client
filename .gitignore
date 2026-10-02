@@ -5,3 +5,4 @@ home.yaml
 *.sqlite3
 providers/
 .idea/
+__pycache__/

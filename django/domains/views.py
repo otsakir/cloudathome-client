@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import ListView, DetailView, FormView
 
-from cloudlink.services import CloudServerClient, CloudServerError
+from cloudlink.services import CloudServerClient, CloudServerError, PublicPortNotOfferedError
 from domains.forms import AddDomainForm, IssueCertificateForm, ProxyEntryForm, TcpProxyEntryForm
 from domains.models import Domain, ProxyEntry
 from domains.services import CertbotError, CertbotService, TunnelConnectionService, TunnelService
@@ -97,18 +97,29 @@ class ProxyEntryCreateView(FormView):
         super().setup(request, *args, **kwargs)
         self.domain = get_object_or_404(Domain, pk=kwargs['domain_pk'])
 
+    def _inbound_ports(self):
+        from cloudlink.config import get_config
+        cfg = get_config()
+        return {s: cfg.inbound_ports(s) for s in (ProxyEntry.SCHEME_HTTP, ProxyEntry.SCHEME_HTTPS)}
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['inbound_ports'] = self._inbound_ports()
+        return kwargs
+
     def get_context_data(self, **kwargs):
         from cloudlink.config import get_config
         context = super().get_context_data(**kwargs)
-        cfg = get_config()
         context['domain'] = self.domain
-        context['lan_forwarding'] = cfg.features.lan_forwarding
-        context['http_port_base'] = cfg.http_port_base
-        context['https_port_base'] = cfg.https_port_base
-        if cfg.http_port_base is not None and cfg.http_port_count is not None:
-            context['http_port_max'] = cfg.http_port_base + cfg.http_port_count - 1
-        if cfg.https_port_base is not None and cfg.https_port_count is not None:
-            context['https_port_max'] = cfg.https_port_base + cfg.https_port_count - 1
+        context['lan_forwarding'] = get_config().features.lan_forwarding
+        context['inbound_ports'] = [
+            {
+                'scheme': scheme,
+                'default': default,
+                'range': (base, base + count - 1) if base is not None and count is not None else None,
+            }
+            for scheme, (default, base, count) in self._inbound_ports().items()
+        ]
         return context
 
     def form_valid(self, form):
@@ -126,8 +137,8 @@ class ProxyEntryCreateView(FormView):
             form.add_error(None, f'{home_host}:{home_port} is already used by another proxy entry.')
             return self.form_invalid(form)
 
-        default_port = 80 if scheme == ProxyEntry.SCHEME_HTTP else 443
-        effective_port = public_port or default_port
+        # Blank means the cloud's default; resolve it the same way the cloud will.
+        effective_port = public_port if public_port is not None else cfg.inbound_ports(scheme)[0]
 
         # A domain may hold more than one entry per scheme, as long as they publish
         # on different ports (the cloud routes on hostname:destination_port, not
@@ -139,22 +150,13 @@ class ProxyEntryCreateView(FormView):
             )
             return self.form_invalid(form)
 
-        if public_port is not None:
-            base, count = (
-                (cfg.http_port_base, cfg.http_port_count) if scheme == ProxyEntry.SCHEME_HTTP
-                else (cfg.https_port_base, cfg.https_port_count)
-            )
-            in_range = base is not None and count is not None and base <= public_port < base + count
-            if public_port != default_port and not in_range:
-                if base is not None and count is not None:
-                    form.add_error('public_port', f'Must be {default_port} (default) or in range {base}–{base + count - 1}.')
-                else:
-                    form.add_error('public_port', f'Must be {default_port} (default).')
-                return self.form_invalid(form)
-
         client = CloudServerClient()
         try:
             result = client.create_proxy_mapping(scheme, host=self.domain.name, public_port=public_port)
+        except PublicPortNotOfferedError as e:
+            # The cached ranges were stale; the cloud's message lists what it offers now.
+            form.add_error('public_port', str(e))
+            return self.form_invalid(form)
         except CloudServerError as e:
             form.add_error(None, str(e))
             return self.form_invalid(form)
@@ -254,7 +256,7 @@ class TcpProxyEntryCreateView(FormView):
                 form.add_error('public_port', f'Must be in range {cfg.tcp_port_base}–{cfg.tcp_port_base + cfg.tcp_port_count - 1}.')
                 return self.form_invalid(form)
 
-        if ProxyEntry.objects.filter(public_port=public_port).exists():
+        if ProxyEntry.objects.filter(scheme=ProxyEntry.SCHEME_TCP, public_port=public_port).exists():
             form.add_error('public_port', 'This public port is already registered.')
             return self.form_invalid(form)
 
