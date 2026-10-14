@@ -39,6 +39,8 @@ Notes:
   until the network is actually up — `start` refreshes inbound port ranges and
   reconnects tunnels against the cloud server on every launch (see
   [tunnels-and-sync.md](tunnels-and-sync.md)), both of which need connectivity.
+  Once running, the console reconnects dropped tunnels by itself (e.g. after an
+  internet outage), so the service needn't restart for that.
 - `Restart=on-failure` auto-recovers the process if it dies (e.g. the cloud is
   briefly unreachable), which a manual `&` doesn't give you.
 

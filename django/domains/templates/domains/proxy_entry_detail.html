@@ -38,7 +38,7 @@
       {% endif %}
     </td>
   </tr>
-  <tr><th>Tunnel status</th><td>{{ object.tunnel_status }}</td></tr>
+  <tr><th>Tunnel status</th><td>{{ object.tunnel_status }}{% if object.desired_up and object.tunnel_status != 'open' %} — reconnecting automatically{% endif %}</td></tr>
   {% if object.tunnel_status == 'error' and object.tunnel_error %}
   <tr><th>Error</th><td>{{ object.tunnel_error }}</td></tr>
   {% endif %}

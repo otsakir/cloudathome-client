@@ -8,13 +8,18 @@ from django.views.generic import ListView, DetailView, FormView
 from cloudlink.services import CloudServerClient, CloudServerError, PublicPortNotOfferedError
 from domains.forms import AddDomainForm, IssueCertificateForm, ProxyEntryForm, TcpProxyEntryForm
 from domains.models import Domain, ProxyEntry
-from domains.services import CertbotError, CertbotService, TunnelConnectionService, TunnelService
+from domains.services import CertbotError, CertbotService, TunnelConnectionService, TunnelService, entry_lock
 
 logger = logging.getLogger(__name__)
 
 
 def _delete_proxy_entry(entry):
     """Close the tunnel, remove the cloud mapping, and delete the local record."""
+    with entry_lock(entry.pk):
+        _delete_proxy_entry_locked(entry)
+
+
+def _delete_proxy_entry_locked(entry):
     if entry.tunnel_pid:
         TunnelService.close_tunnel(entry.tunnel_pid)
     client = CloudServerClient()
@@ -179,10 +184,12 @@ class ProxyEntryDetailView(DetailView):
     def get_object(self, queryset=None):
         entry = super().get_object(queryset)
         # Correct stale "open" status if the SSH process is no longer running
+        # (the supervisor revives it if desired_up).
         if entry.tunnel_status == ProxyEntry.TUNNEL_OPEN and entry.tunnel_pid:
             if not TunnelService.is_running(entry.tunnel_pid):
                 entry.tunnel_pid = None
-                entry.tunnel_status = ProxyEntry.TUNNEL_CLOSED
+                entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
+                entry.tunnel_error = 'Tunnel process is no longer running'
                 entry.save()
         return entry
 
@@ -322,22 +329,27 @@ class ReconnectEntryView(View):
 
 class TunnelToggleView(View):
     def post(self, request, pk):
-        entry = get_object_or_404(ProxyEntry, pk=pk)
-        if entry.tunnel_status == ProxyEntry.TUNNEL_OPEN:
-            if entry.tunnel_pid:
-                TunnelService.close_tunnel(entry.tunnel_pid)
-            entry.tunnel_pid = None
-            entry.tunnel_status = ProxyEntry.TUNNEL_CLOSED
-        else:
-            try:
-                pid = TunnelService.open_tunnel(entry)
-                entry.tunnel_pid = pid
-                entry.tunnel_status = ProxyEntry.TUNNEL_OPEN
-                entry.tunnel_error = ''
-            except Exception as e:
-                logger.exception('Failed to open tunnel for proxy entry %r', entry)
-                entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
-                entry.tunnel_error = str(e)
-                messages.error(request, f'Failed to open tunnel: {e}')
-        entry.save()
+        with entry_lock(pk):
+            entry = get_object_or_404(ProxyEntry, pk=pk)
+            if entry.tunnel_status == ProxyEntry.TUNNEL_OPEN:
+                if entry.tunnel_pid:
+                    TunnelService.close_tunnel(entry.tunnel_pid)
+                entry.tunnel_pid = None
+                entry.tunnel_status = ProxyEntry.TUNNEL_CLOSED
+                entry.desired_up = False
+            else:
+                entry.desired_up = True
+                try:
+                    pid = TunnelService.open_tunnel(entry)
+                    entry.tunnel_pid = pid
+                    entry.tunnel_status = ProxyEntry.TUNNEL_OPEN
+                    entry.tunnel_error = ''
+                except Exception as e:
+                    logger.exception('Failed to open tunnel for proxy entry %r', entry)
+                    entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
+                    entry.tunnel_error = str(e)
+                    if isinstance(e, PermissionError):  # LAN forwarding disabled: retrying can't help
+                        entry.desired_up = False
+                    messages.error(request, f'Failed to open tunnel: {e}')
+            entry.save()
         return redirect('proxy_entry_detail', pk=entry.pk)

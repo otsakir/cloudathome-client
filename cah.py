@@ -23,6 +23,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -319,12 +320,17 @@ def cmd_start(args):
     print('Refreshing inbound port ranges from cloud...')
     _refresh_inbound_port_ranges(data, config_path)
 
-    if not args.no_reconnect:
-        print('Reconnecting existing tunnels...')
-        _run_manage(config_path, 'reconnect_tunnels', capture=False)
-
     print(f'Starting Home Console for "{args.profile}" on port {port}...')
     env = dict(os.environ, HOME_CONFIG=str(config_path))
+    # Reconnecting happens inside the Home Console (domains.supervisor), not
+    # here, so the process that owns the tunnels is the one watching them --
+    # and keeps reconnecting them whenever they drop, e.g. the internet going down.
+    if args.no_reconnect:
+        print('Not reconnecting tunnels (--no-reconnect): they stay as they are and are not supervised.')
+    else:
+        print('Tunnels will be reconnected, and kept up, by the Home Console.')
+        env['CAH_TUNNEL_SUPERVISOR'] = '1'
+        env['CAH_START_ID'] = uuid.uuid4().hex
     os.chdir(_MANAGE_PY.parent)
     os.execvpe(sys.executable, [sys.executable, str(_MANAGE_PY), 'runserver', f'0.0.0.0:{port}'], env)
 
@@ -430,7 +436,7 @@ def main():
     p_start.add_argument('--port', type=int, default=None,
                           help='Port to serve on (default: auto-assigned and remembered per profile)')
     p_start.add_argument('--no-reconnect', action='store_true',
-                          help='Skip automatically reconnecting existing tunnels on startup')
+                          help='Neither reconnect tunnels on startup nor automatically reconnect them when they drop')
     p_start.set_defaults(func=cmd_start)
 
     p_list = subparsers.add_parser('list', help='List registered profiles')

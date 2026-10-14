@@ -36,7 +36,8 @@ aren't obvious from reading a single file in isolation.
     │   ├── settings.py                  # profile DB path pulled from cloudlink.config at import time
     │   └── home_config.py               # loads home.yaml (machine-wide settings, e.g. allowed_hosts)
     ├── cloudlink/                       # profile config loading (config.py), cloud API client (services.py), dashboard views
-    ├── domains/                         # Domain/ProxyEntry models, forms, views, tunnel/certbot services
+    ├── domains/                         # Domain/ProxyEntry models, forms, views, tunnel/certbot services,
+    │   │                                #   supervisor.py: keeps wanted-up tunnels up (auto-reconnect)
     │   └── management/commands/
     │       ├── reconnect_tunnels.py     # re-registers cloud mappings + reopens tunnels
     │       └── deregister.py            # disconnects tunnels, releases the home slot, revokes the API token
@@ -89,6 +90,17 @@ aren't obvious from reading a single file in isolation.
   (never trusts a "still running" PID as proof the tunnel is still connected to
   the *current* cloud instance — a local ssh client can outlive the cloud
   restarting under it until `ServerAliveInterval`/`ServerAliveCountMax` time out).
+- **Auto-reconnect** (`domains/supervisor.py`): one daemon thread in the Home
+  Console process (started from `DomainsConfig.ready()`, only when `cah.py
+  start` sets `CAH_TUNNEL_SUPERVISOR=1` and only in runserver's autoreloader
+  child) revives entries with `ProxyEntry.desired_up` whose ssh process is gone,
+  via `reconnect_entry`, with per-entry backoff. `desired_up` (what should be)
+  is kept separate from `tunnel_status` (what is). Everything that opens or
+  closes one entry's tunnel holds `domains.services.entry_lock(pk)`, so a user
+  action and a retry can't both start an ssh process for it. The startup
+  reconnect also runs in that thread (once per `cah.py start`, keyed by
+  `CAH_START_ID`, not again on each autoreload), so the process owning the
+  tunnels is the one with pump threads watching them.
 - **`deregister`** (management command) is the counterpart to `cah.py remove`:
   disconnects tunnels, calls the cloud to release the home slot (which itself
   cascades cleanup of base domains/mappings/bandwidth server-side), then revokes

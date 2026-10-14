@@ -68,7 +68,7 @@ class ResetHostKeyView(View):
 
     def post(self, request):
         hostkey.reset_host_key()
-        succeeded, failed = TunnelConnectionService.reconnect_all()
+        succeeded, failed = TunnelConnectionService.reconnect_all(only_desired=True)
         if failed:
             messages.warning(request, f'Host key reset. Connect all: {succeeded} connected, {failed} failed')
         else:

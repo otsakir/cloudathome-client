@@ -3,6 +3,11 @@ import requests
 from cloudlink.config import get_config
 
 
+# (connect, read) seconds. Without one, a call made while the network is
+# down or half-open can hang indefinitely -- and with it the tunnel supervisor.
+_TIMEOUT = (5, 30)
+
+
 class CloudServerError(Exception):
     pass
 
@@ -30,11 +35,17 @@ class CloudServerClient:
     def _headers(self):
         return {'Authorization': f'Token {get_config().auth_token}'}
 
+    def _request(self, method, url, **kwargs):
+        try:
+            return requests.request(method, url, timeout=_TIMEOUT, **kwargs)
+        except requests.RequestException as e:
+            raise CloudServerError(f'cloud server unreachable: {e}') from e
+
     def _url(self, path):
         return f'{get_config().cloudserver_url.rstrip("/")}/{path.lstrip("/")}'
 
     def get_home(self):
-        resp = requests.get(self._url('/api/homes/'), headers=self._headers())
+        resp = self._request('GET', self._url('/api/homes/'), headers=self._headers())
         if resp.status_code != 200:
             raise CloudServerError(f'get_home failed: {resp.status_code} {resp.text}')
         homes = resp.json()
@@ -52,7 +63,7 @@ class CloudServerClient:
             payload = {'host': host, 'scheme': scheme}
             if public_port is not None:
                 payload['public_port'] = public_port
-        resp = requests.post(url, headers=self._headers(), json=payload)
+        resp = self._request('POST', url, headers=self._headers(), json=payload)
         if resp.status_code == 400:
             try:
                 body = resp.json()
@@ -74,12 +85,12 @@ class CloudServerClient:
             url = self._url(f'/api/homes/{slug}/proxy-mappings/tcp/{public_port}/')
         else:
             url = self._url(f'/api/homes/{slug}/proxy-mappings/{scheme}/{host}/{public_port}/')
-        resp = requests.delete(url, headers=self._headers())
+        resp = self._request('DELETE', url, headers=self._headers())
         if resp.status_code != 204:
             raise CloudServerError(f'delete_proxy_mapping failed: {resp.status_code} {resp.text}')
 
     def list_base_domains(self):
-        resp = requests.get(
+        resp = self._request('GET',
             self._url(f'/api/homes/{get_config().home_slug}/base-domains/'),
             headers=self._headers(),
         )
@@ -88,7 +99,7 @@ class CloudServerClient:
         return resp.json()
 
     def add_base_domain(self, domain):
-        resp = requests.post(
+        resp = self._request('POST',
             self._url(f'/api/homes/{get_config().home_slug}/base-domains/'),
             headers=self._headers(),
             json={'domain': domain},
@@ -100,7 +111,7 @@ class CloudServerClient:
         return resp.json()
 
     def remove_base_domain(self, domain):
-        resp = requests.delete(
+        resp = self._request('DELETE',
             self._url(f'/api/homes/{get_config().home_slug}/base-domains/{domain}/'),
             headers=self._headers(),
         )
@@ -110,7 +121,7 @@ class CloudServerClient:
             raise CloudServerError(f'remove_base_domain failed: {resp.status_code} {resp.text}')
 
     def update_bandwidth(self, kbps_or_none):
-        resp = requests.patch(
+        resp = self._request('PATCH',
             self._url(f'/api/homes/{get_config().home_slug}/'),
             headers=self._headers(),
             json={'bandwidth_limit_kbps': kbps_or_none},
@@ -123,7 +134,7 @@ class CloudServerClient:
         """Release this home's slot. The cloud also cleans up its base domains, live
         mappings, and bandwidth limit -- see HomeRetrieveDestroyApiView.destroy().
         A 404 means it was already released by a prior partial run; treat as success."""
-        resp = requests.delete(
+        resp = self._request('DELETE',
             self._url(f'/api/homes/{get_config().home_slug}/'),
             headers=self._headers(),
         )
@@ -133,6 +144,6 @@ class CloudServerClient:
             raise CloudServerError(f'delete_home failed: {resp.status_code} {resp.text}')
 
     def revoke_token(self):
-        resp = requests.delete(self._url('/api/auth/token/'), headers=self._headers())
+        resp = self._request('DELETE', self._url('/api/auth/token/'), headers=self._headers())
         if resp.status_code != 204:
             raise CloudServerError(f'revoke_token failed: {resp.status_code} {resp.text}')

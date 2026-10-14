@@ -22,7 +22,7 @@ NOT_OFFERED_BODY = {
 
 
 def test_create_proxy_mapping_raises_specific_error_for_port_not_offered():
-    with patch('cloudlink.services.requests.post', return_value=_response(400, NOT_OFFERED_BODY)):
+    with patch('cloudlink.services.requests.request', return_value=_response(400, NOT_OFFERED_BODY)):
         with pytest.raises(PublicPortNotOfferedError) as exc_info:
             CloudServerClient().create_proxy_mapping('https', host='mysite.example.com', public_port=8443)
 
@@ -31,7 +31,7 @@ def test_create_proxy_mapping_raises_specific_error_for_port_not_offered():
 
 
 def test_create_proxy_mapping_other_400_stays_generic():
-    with patch('cloudlink.services.requests.post', return_value=_response(400, {'host': ['This field is required.']})):
+    with patch('cloudlink.services.requests.request', return_value=_response(400, {'host': ['This field is required.']})):
         with pytest.raises(CloudServerError) as exc_info:
             CloudServerClient().create_proxy_mapping('https', host='mysite.example.com')
 
@@ -58,7 +58,7 @@ def test_reconnect_records_port_not_offered_reason_on_entry():
 
     entry.refresh_from_db()
     assert entry.tunnel_status == ProxyEntry.TUNNEL_ERROR
-    assert entry.tunnel_error == str(error)
+    assert entry.tunnel_error.startswith(str(error))
 
 
 @pytest.mark.django_db

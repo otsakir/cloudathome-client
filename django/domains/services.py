@@ -11,12 +11,23 @@ from pathlib import Path
 
 from cloudlink.config import get_config
 from cloudlink.hostkey import HostKeyChangeDetector, known_hosts_path, record_host_key_change
-from cloudlink.services import CloudServerClient, CloudServerError
+from cloudlink.services import CloudServerClient, CloudServerError, PublicPortNotOfferedError
 
 logger = logging.getLogger(__name__)
 
 _TUNNEL_LOG_MAX_BYTES = 5 * 1024 * 1024
 _TUNNEL_LOG_BACKUP_COUNT = 3
+
+_entry_locks = {}
+_entry_locks_guard = threading.Lock()
+
+
+def entry_lock(entry_pk):
+    """Per-entry lock serialising everything that opens/closes one entry's
+    tunnel (user actions in request threads, the supervisor's retries), so two
+    of them can't each start an ssh process for the same entry."""
+    with _entry_locks_guard:
+        return _entry_locks.setdefault(entry_pk, threading.RLock())
 
 
 def _tunnel_log_slug(entry):
@@ -105,8 +116,9 @@ def _on_tunnel_process_exited(entry_pk, pid, returncode, error=''):
     load this entry's detail page.
 
     This is the one place to hook additional handling for an unexpected drop
-    (e.g. an auto-retry, a notification/webhook) -- it already knows the pid,
-    the exit code, and has the entry's pk to look up.
+    (e.g. a notification/webhook) -- it already knows the pid, the exit code,
+    and has the entry's pk to look up. Auto-retry lives in domains.supervisor,
+    which this wakes so it reacts now rather than at its next periodic check.
     """
     from domains.models import ProxyEntry
     updated = ProxyEntry.objects.filter(pk=entry_pk, tunnel_pid=pid).update(
@@ -118,6 +130,8 @@ def _on_tunnel_process_exited(entry_pk, pid, returncode, error=''):
             'Tunnel for proxy entry %s (pid %s) exited unexpectedly (exit code %s); marked as error%s',
             entry_pk, pid, returncode, f': {error}' if error else '',
         )
+        from domains.supervisor import wake_supervisor
+        wake_supervisor()
 
 
 class CertbotError(Exception):
@@ -275,6 +289,9 @@ class TunnelService:
             pass  # process already gone, nothing to do
 
 
+_NO_AUTO_RECONNECT = ' (not retried automatically: reconnect it once fixed)'
+
+
 class TunnelConnectionService:
 
     @staticmethod
@@ -284,9 +301,20 @@ class TunnelConnectionService:
         local ssh process: a process can outlive the cloud restarting under it
         (it takes ServerAliveInterval*ServerAliveCountMax to notice a dead
         connection), so "still running" doesn't mean "still connected to the
-        current cloud instance." Idempotent."""
+        current cloud instance." Idempotent.
+
+        Marks the entry as wanted up (desired_up), so the supervisor keeps it
+        up from now on -- except after a failure retrying can't fix (the cloud
+        no longer offers its public port, LAN forwarding disabled), which
+        clears desired_up again until the user reconnects it."""
+        with entry_lock(entry.pk):
+            TunnelConnectionService._reconnect_entry(entry)
+
+    @staticmethod
+    def _reconnect_entry(entry):
         from domains.models import ProxyEntry
         client = CloudServerClient()
+        entry.desired_up = True
 
         if entry.tunnel_pid:
             TunnelService.close_tunnel(entry.tunnel_pid)
@@ -317,6 +345,9 @@ class TunnelConnectionService:
             # how the user later sees e.g. PublicPortNotOfferedError's reason.
             entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
             entry.tunnel_error = str(e)
+            if isinstance(e, PublicPortNotOfferedError):
+                entry.desired_up = False
+                entry.tunnel_error += _NO_AUTO_RECONNECT
             entry.save()
             raise
 
@@ -326,6 +357,9 @@ class TunnelConnectionService:
         except Exception as e:
             entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
             entry.tunnel_error = str(e)
+            if isinstance(e, PermissionError):
+                entry.desired_up = False
+                entry.tunnel_error += _NO_AUTO_RECONNECT
             entry.save()
             raise
 
@@ -334,10 +368,14 @@ class TunnelConnectionService:
         entry.save()
 
     @staticmethod
-    def reconnect_all():
-        """Reconnect every ProxyEntry. Returns (succeeded, failed) counts."""
+    def reconnect_all(only_desired=False):
+        """Reconnect every ProxyEntry (or, with only_desired, just those the
+        user wants up -- the Home Console's startup). Returns (succeeded, failed) counts."""
         from domains.models import ProxyEntry
-        entries = list(ProxyEntry.objects.select_related('domain').all())
+        entries = ProxyEntry.objects.select_related('domain')
+        if only_desired:
+            entries = entries.filter(desired_up=True)
+        entries = list(entries)
         succeeded = 0
         failed = 0
         for entry in entries:
@@ -352,6 +390,11 @@ class TunnelConnectionService:
     @staticmethod
     def disconnect_entry(entry):
         """Close tunnel + remove cloud mapping for one entry."""
+        with entry_lock(entry.pk):
+            TunnelConnectionService._disconnect_entry(entry)
+
+    @staticmethod
+    def _disconnect_entry(entry):
         from domains.models import ProxyEntry
         if entry.tunnel_pid:
             TunnelService.close_tunnel(entry.tunnel_pid)
@@ -365,6 +408,7 @@ class TunnelConnectionService:
             logger.info('disconnect_entry %r: no cloud mapping to remove (%s)', entry, e)
         entry.tunnel_pid = None
         entry.tunnel_status = ProxyEntry.TUNNEL_CLOSED
+        entry.desired_up = False
         entry.save()
 
     @staticmethod
