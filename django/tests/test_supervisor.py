@@ -45,8 +45,8 @@ def reconnect():
 
 
 @pytest.mark.django_db
-def test_dead_wanted_tunnel_is_reconnected(running_pids, reachable, reconnect):
-    entry = _entry(desired_up=True, tunnel_status=ProxyEntry.TUNNEL_ERROR)
+def test_dead_keep_open_tunnel_is_reconnected(running_pids, reachable, reconnect):
+    entry = _entry(keep_open=True, tunnel_status=ProxyEntry.TUNNEL_ERROR)
     TunnelSupervisor(clock=_Clock()).check_once()
     reconnect.assert_called_once()
     assert reconnect.call_args.args[0].pk == entry.pk
@@ -54,8 +54,8 @@ def test_dead_wanted_tunnel_is_reconnected(running_pids, reachable, reconnect):
 
 @pytest.mark.django_db
 def test_closed_or_alive_tunnels_are_left_alone(running_pids, reachable, reconnect):
-    _entry(desired_up=False, tunnel_status=ProxyEntry.TUNNEL_CLOSED)
-    _entry(public_port=2223, home_port=23, desired_up=True, tunnel_pid=42, tunnel_status=ProxyEntry.TUNNEL_OPEN)
+    _entry(keep_open=False, tunnel_status=ProxyEntry.TUNNEL_CLOSED)
+    _entry(public_port=2223, home_port=23, keep_open=True, tunnel_pid=42, tunnel_status=ProxyEntry.TUNNEL_OPEN)
     running_pids.add(42)
     TunnelSupervisor(clock=_Clock()).check_once()
     reconnect.assert_not_called()
@@ -63,7 +63,7 @@ def test_closed_or_alive_tunnels_are_left_alone(running_pids, reachable, reconne
 
 @pytest.mark.django_db
 def test_unwatched_dead_tunnel_is_marked_as_error(running_pids, reachable, reconnect):
-    entry = _entry(desired_up=True, tunnel_pid=42, tunnel_status=ProxyEntry.TUNNEL_OPEN)
+    entry = _entry(keep_open=True, tunnel_pid=42, tunnel_status=ProxyEntry.TUNNEL_OPEN)
     reachable.return_value = False
     TunnelSupervisor(clock=_Clock()).check_once()
     entry.refresh_from_db()
@@ -74,7 +74,7 @@ def test_unwatched_dead_tunnel_is_marked_as_error(running_pids, reachable, recon
 
 @pytest.mark.django_db
 def test_no_attempt_while_cloud_unreachable_and_no_backoff_consumed(running_pids, reachable, reconnect):
-    _entry(desired_up=True, tunnel_status=ProxyEntry.TUNNEL_ERROR)
+    _entry(keep_open=True, tunnel_status=ProxyEntry.TUNNEL_ERROR)
     s = TunnelSupervisor(clock=_Clock())
     reachable.return_value = False
     for _ in range(5):
@@ -88,7 +88,7 @@ def test_no_attempt_while_cloud_unreachable_and_no_backoff_consumed(running_pids
 
 @pytest.mark.django_db
 def test_failed_attempts_back_off_exponentially_up_to_the_cap(running_pids, reachable, reconnect):
-    _entry(desired_up=True, tunnel_status=ProxyEntry.TUNNEL_ERROR)
+    _entry(keep_open=True, tunnel_status=ProxyEntry.TUNNEL_ERROR)
     reconnect.side_effect = RuntimeError('remote port forwarding failed')
     clock = _Clock()
     s = TunnelSupervisor(clock=clock)
@@ -107,7 +107,7 @@ def test_failed_attempts_back_off_exponentially_up_to_the_cap(running_pids, reac
 
 @pytest.mark.django_db
 def test_backoff_resets_once_tunnel_stays_up(running_pids, reachable, reconnect):
-    entry = _entry(desired_up=True, tunnel_status=ProxyEntry.TUNNEL_ERROR)
+    entry = _entry(keep_open=True, tunnel_status=ProxyEntry.TUNNEL_ERROR)
     clock = _Clock()
     s = TunnelSupervisor(clock=clock)
     s.check_once()
@@ -127,7 +127,7 @@ def test_backoff_resets_once_tunnel_stays_up(running_pids, reachable, reconnect)
 
 @pytest.mark.django_db
 def test_paused_while_host_key_change_awaits_a_decision(running_pids, reachable, reconnect):
-    _entry(desired_up=True, tunnel_status=ProxyEntry.TUNNEL_ERROR)
+    _entry(keep_open=True, tunnel_status=ProxyEntry.TUNNEL_ERROR)
     hostkey.record_host_key_change('SHA256:new')
     TunnelSupervisor(clock=_Clock()).check_once()
     reconnect.assert_not_called()
@@ -135,28 +135,28 @@ def test_paused_while_host_key_change_awaits_a_decision(running_pids, reachable,
 
 @pytest.mark.django_db
 def test_entry_closed_meanwhile_is_not_revived(running_pids, reachable, reconnect):
-    entry = _entry(desired_up=True, tunnel_status=ProxyEntry.TUNNEL_ERROR)
+    entry = _entry(keep_open=True, tunnel_status=ProxyEntry.TUNNEL_ERROR)
     s = TunnelSupervisor(clock=_Clock())
-    ProxyEntry.objects.filter(pk=entry.pk).update(desired_up=False)
+    ProxyEntry.objects.filter(pk=entry.pk).update(keep_open=False)
     s._revive(entry, 0)
     reconnect.assert_not_called()
 
 
 @pytest.mark.django_db
 def test_port_not_offered_stops_auto_reconnect():
-    entry = _entry(desired_up=True)
+    entry = _entry(keep_open=True)
     with patch('domains.services.CloudServerClient') as client:
         client.return_value.create_proxy_mapping.side_effect = PublicPortNotOfferedError(2222, 443, [])
         with pytest.raises(PublicPortNotOfferedError):
             TunnelConnectionService.reconnect_entry(entry)
     entry.refresh_from_db()
-    assert not entry.desired_up
+    assert not entry.keep_open
     assert entry.tunnel_status == ProxyEntry.TUNNEL_ERROR
     assert 'not retried automatically' in entry.tunnel_error
 
 
 @pytest.mark.django_db
-def test_reconnect_and_disconnect_set_desired_state():
+def test_reconnect_and_disconnect_set_keep_open():
     entry = _entry()
     with patch('domains.services.CloudServerClient') as client, \
          patch('domains.services.TunnelService.open_tunnel', return_value=4242), \
@@ -164,19 +164,19 @@ def test_reconnect_and_disconnect_set_desired_state():
         client.return_value.create_proxy_mapping.return_value = {'tunnel_port': 3000}
         TunnelConnectionService.reconnect_entry(entry)
         entry.refresh_from_db()
-        assert entry.desired_up
+        assert entry.keep_open
         TunnelConnectionService.disconnect_entry(entry)
     entry.refresh_from_db()
-    assert not entry.desired_up
+    assert not entry.keep_open
 
 
 @pytest.mark.django_db
-def test_startup_reconnect_only_touches_wanted_entries():
-    wanted = _entry(desired_up=True)
-    _entry(public_port=2223, home_port=23, desired_up=False)
+def test_startup_reconnect_only_touches_keep_open_entries():
+    kept = _entry(keep_open=True)
+    _entry(public_port=2223, home_port=23, keep_open=False)
     with patch('domains.services.TunnelConnectionService.reconnect_entry') as reconnect:
-        TunnelConnectionService.reconnect_all(only_desired=True)
-    assert [c.args[0].pk for c in reconnect.call_args_list] == [wanted.pk]
+        TunnelConnectionService.reconnect_all(only_keep_open=True)
+    assert [c.args[0].pk for c in reconnect.call_args_list] == [kept.pk]
 
 
 def test_supervisor_not_started_outside_the_serving_process(monkeypatch):

@@ -20,12 +20,13 @@ The Home Console keeps tunnels up on its own: if one drops — most commonly the
 home's internet going down — it's reconnected once that's possible again,
 without anyone clicking anything.
 
-- **What it keeps up**: each proxy entry records whether you want it up. Opening
+- **What it keeps open**: each proxy entry records whether to keep it open
+  (`keep_open`). Opening
   it, **Reconnect**, or **Connect all** turns that on; **Close tunnel** or
   **Disconnect all** turns it off. A tunnel you closed is never reopened
   behind your back, also not on the next `cah.py start`.
 - **How**: a supervisor thread (`domains/supervisor.py`) checks every 10s — and
-  immediately when a tunnel process exits — for wanted-up entries whose ssh
+  immediately when a tunnel process exits — for `keep_open` entries whose ssh
   process is gone, and runs the same full reconnect as the **Reconnect** button
   (cloud mapping included). It checks the process itself, not just the stored
   status, so it also covers tunnels this console didn't open itself.
@@ -45,7 +46,7 @@ without anyone clicking anything.
   failed" and is simply retried.
 
 It runs only in the Home Console started by `cah.py start`, which also uses it
-to reconnect every wanted-up entry on startup. `cah.py start --no-reconnect`
+to reconnect every `keep_open` entry on startup. `cah.py start --no-reconnect`
 turns both off. To run the supervisor under a hand-started `manage.py
 runserver`, set `CAH_TUNNEL_SUPERVISOR=1`.
 
@@ -109,7 +110,7 @@ From the dashboard:
 
 - **Connect all** — reconnects every proxy entry at once, including closed ones
   (which are then kept up from then on). `python cah.py start` reconnects the
-  wanted-up ones automatically on every launch (skip with `--no-reconnect`).
+  `keep_open` ones automatically on every launch (skip with `--no-reconnect`).
 - **Disconnect all** — closes all tunnels and removes all cloud proxy mappings
   cleanly.
 

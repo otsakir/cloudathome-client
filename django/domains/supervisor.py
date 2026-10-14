@@ -1,8 +1,8 @@
-"""Keeps the tunnels the user wants up (ProxyEntry.desired_up) actually up.
+"""Keeps the tunnels the user opened (ProxyEntry.keep_open) actually open.
 
 A single daemon thread inside the Home Console process. Every CHECK_INTERVAL
 seconds -- or right away when a tunnel's pump thread reports an exit (see
-domains.services._on_tunnel_process_exited) -- it looks for wanted-up entries
+domains.services._on_tunnel_process_exited) -- it looks for keep_open entries
 whose ssh process is gone and reconnects them via reconnect_entry (cloud
 mapping included), with a per-entry exponential backoff.
 
@@ -15,7 +15,7 @@ Retries are skipped while:
   nothing to gain, and it keeps the logs to one line per outage;
 - the cloud's host key has changed (cloudlink.hostkey): every attempt would be
   refused until the user decides whether to trust the new key.
-Failures retrying can't fix clear desired_up instead (see reconnect_entry).
+Failures retrying can't fix clear keep_open instead (see reconnect_entry).
 """
 import logging
 import os
@@ -45,7 +45,7 @@ CLOUD_PROBE_TIMEOUT = 5
 
 # Set by cah.py start (unless --no-reconnect) on the runserver it execs.
 ENABLE_ENV = 'CAH_TUNNEL_SUPERVISOR'
-# Unique per `cah.py start` run, so the forced reconnect of every wanted-up
+# Unique per `cah.py start` run, so the forced reconnect of every keep_open
 # entry happens once per start -- not again on each runserver autoreload.
 START_ID_ENV = 'CAH_START_ID'
 
@@ -121,7 +121,7 @@ class TunnelSupervisor:
             # Forced, not just "revive the dead ones": a still-running ssh may be
             # connected to a cloud instance that has since restarted.
             try:
-                succeeded, failed = TunnelConnectionService.reconnect_all(only_desired=True)
+                succeeded, failed = TunnelConnectionService.reconnect_all(only_keep_open=True)
                 logger.info('Startup reconnect: %s connected, %s failed (retried by the supervisor)',
                             succeeded, failed)
             except Exception:
@@ -142,12 +142,12 @@ class TunnelSupervisor:
             return
 
         now = self._clock()
-        wanted = list(ProxyEntry.objects.filter(desired_up=True))
-        for pk in set(self._backoff) - {e.pk for e in wanted}:
+        kept = list(ProxyEntry.objects.filter(keep_open=True))
+        for pk in set(self._backoff) - {e.pk for e in kept}:
             del self._backoff[pk]
 
         down = []
-        for entry in wanted:
+        for entry in kept:
             if entry.tunnel_pid and TunnelService.is_running(entry.tunnel_pid):
                 state = self._backoff.get(entry.pk)
                 if state and now - state.last_attempt >= STABLE_AFTER:
@@ -188,7 +188,7 @@ class TunnelSupervisor:
                 self._backoff.pop(entry.pk, None)
                 return
             # The user may have closed it, or reconnected it themselves, meanwhile.
-            if not entry.desired_up or (entry.tunnel_pid and TunnelService.is_running(entry.tunnel_pid)):
+            if not entry.keep_open or (entry.tunnel_pid and TunnelService.is_running(entry.tunnel_pid)):
                 return
             state = self._backoff.setdefault(entry.pk, _Backoff())
             state.attempts += 1

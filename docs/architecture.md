@@ -37,7 +37,7 @@ aren't obvious from reading a single file in isolation.
     │   └── home_config.py               # loads home.yaml (machine-wide settings, e.g. allowed_hosts)
     ├── cloudlink/                       # profile config loading (config.py), cloud API client (services.py), dashboard views
     ├── domains/                         # Domain/ProxyEntry models, forms, views, tunnel/certbot services,
-    │   │                                #   supervisor.py: keeps wanted-up tunnels up (auto-reconnect)
+    │   │                                #   supervisor.py: auto-reconnects tunnels marked keep_open
     │   └── management/commands/
     │       ├── reconnect_tunnels.py     # re-registers cloud mappings + reopens tunnels
     │       └── deregister.py            # disconnects tunnels, releases the home slot, revokes the API token
@@ -93,8 +93,8 @@ aren't obvious from reading a single file in isolation.
 - **Auto-reconnect** (`domains/supervisor.py`): one daemon thread in the Home
   Console process (started from `DomainsConfig.ready()`, only when `cah.py
   start` sets `CAH_TUNNEL_SUPERVISOR=1` and only in runserver's autoreloader
-  child) revives entries with `ProxyEntry.desired_up` whose ssh process is gone,
-  via `reconnect_entry`, with per-entry backoff. `desired_up` (what should be)
+  child) revives entries with `ProxyEntry.keep_open` whose ssh process is gone,
+  via `reconnect_entry`, with per-entry backoff. `keep_open` (what should be)
   is kept separate from `tunnel_status` (what is). Everything that opens or
   closes one entry's tunnel holds `domains.services.entry_lock(pk)`, so a user
   action and a retry can't both start an ssh process for it. The startup

@@ -184,7 +184,7 @@ class ProxyEntryDetailView(DetailView):
     def get_object(self, queryset=None):
         entry = super().get_object(queryset)
         # Correct stale "open" status if the SSH process is no longer running
-        # (the supervisor revives it if desired_up).
+        # (the supervisor revives it if keep_open).
         if entry.tunnel_status == ProxyEntry.TUNNEL_OPEN and entry.tunnel_pid:
             if not TunnelService.is_running(entry.tunnel_pid):
                 entry.tunnel_pid = None
@@ -336,9 +336,9 @@ class TunnelToggleView(View):
                     TunnelService.close_tunnel(entry.tunnel_pid)
                 entry.tunnel_pid = None
                 entry.tunnel_status = ProxyEntry.TUNNEL_CLOSED
-                entry.desired_up = False
+                entry.keep_open = False
             else:
-                entry.desired_up = True
+                entry.keep_open = True
                 try:
                     pid = TunnelService.open_tunnel(entry)
                     entry.tunnel_pid = pid
@@ -349,7 +349,7 @@ class TunnelToggleView(View):
                     entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
                     entry.tunnel_error = str(e)
                     if isinstance(e, PermissionError):  # LAN forwarding disabled: retrying can't help
-                        entry.desired_up = False
+                        entry.keep_open = False
                     messages.error(request, f'Failed to open tunnel: {e}')
             entry.save()
         return redirect('proxy_entry_detail', pk=entry.pk)

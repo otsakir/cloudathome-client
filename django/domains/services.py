@@ -303,10 +303,10 @@ class TunnelConnectionService:
         connection), so "still running" doesn't mean "still connected to the
         current cloud instance." Idempotent.
 
-        Marks the entry as wanted up (desired_up), so the supervisor keeps it
+        Marks the entry keep_open, so the supervisor keeps it open
         up from now on -- except after a failure retrying can't fix (the cloud
         no longer offers its public port, LAN forwarding disabled), which
-        clears desired_up again until the user reconnects it."""
+        clears keep_open again until the user reconnects it."""
         with entry_lock(entry.pk):
             TunnelConnectionService._reconnect_entry(entry)
 
@@ -314,7 +314,7 @@ class TunnelConnectionService:
     def _reconnect_entry(entry):
         from domains.models import ProxyEntry
         client = CloudServerClient()
-        entry.desired_up = True
+        entry.keep_open = True
 
         if entry.tunnel_pid:
             TunnelService.close_tunnel(entry.tunnel_pid)
@@ -346,7 +346,7 @@ class TunnelConnectionService:
             entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
             entry.tunnel_error = str(e)
             if isinstance(e, PublicPortNotOfferedError):
-                entry.desired_up = False
+                entry.keep_open = False
                 entry.tunnel_error += _NO_AUTO_RECONNECT
             entry.save()
             raise
@@ -358,7 +358,7 @@ class TunnelConnectionService:
             entry.tunnel_status = ProxyEntry.TUNNEL_ERROR
             entry.tunnel_error = str(e)
             if isinstance(e, PermissionError):
-                entry.desired_up = False
+                entry.keep_open = False
                 entry.tunnel_error += _NO_AUTO_RECONNECT
             entry.save()
             raise
@@ -368,13 +368,13 @@ class TunnelConnectionService:
         entry.save()
 
     @staticmethod
-    def reconnect_all(only_desired=False):
-        """Reconnect every ProxyEntry (or, with only_desired, just those the
+    def reconnect_all(only_keep_open=False):
+        """Reconnect every ProxyEntry (or, with only_keep_open, just those the
         user wants up -- the Home Console's startup). Returns (succeeded, failed) counts."""
         from domains.models import ProxyEntry
         entries = ProxyEntry.objects.select_related('domain')
-        if only_desired:
-            entries = entries.filter(desired_up=True)
+        if only_keep_open:
+            entries = entries.filter(keep_open=True)
         entries = list(entries)
         succeeded = 0
         failed = 0
@@ -408,7 +408,7 @@ class TunnelConnectionService:
             logger.info('disconnect_entry %r: no cloud mapping to remove (%s)', entry, e)
         entry.tunnel_pid = None
         entry.tunnel_status = ProxyEntry.TUNNEL_CLOSED
-        entry.desired_up = False
+        entry.keep_open = False
         entry.save()
 
     @staticmethod

@@ -52,11 +52,11 @@ class ProxyEntry(models.Model):
     # longer offering this entry's public_port). Only meaningful while
     # tunnel_status is TUNNEL_ERROR; cleared on the next successful open.
     tunnel_error = models.TextField(blank=True, default='')
-    # Whether the user wants this tunnel up -- set by open/connect, cleared by
+    # Whether the user wants this tunnel kept open -- set by open/connect, cleared by
     # close/disconnect. tunnel_status is what actually is; this is what should
     # be. The tunnel supervisor (domains.supervisor) only revives entries with
     # this set, so a tunnel the user closed is never reopened behind their back.
-    desired_up = models.BooleanField(default=False)
+    keep_open = models.BooleanField(default=False)
 
     # HTTP/HTTPS only
     domain = models.ForeignKey(Domain, null=True, blank=True, on_delete=models.CASCADE, related_name='proxy_entries')
