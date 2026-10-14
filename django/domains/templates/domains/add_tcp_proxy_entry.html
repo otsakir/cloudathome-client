@@ -3,13 +3,9 @@
 <head><title>Add TCP forward</title></head>
 <body>
 <h1>Add TCP forward</h1>
-<p><a href="{% url 'domain_list' %}">Back to domains</a> | <a href="{% url 'dashboard' %}">Dashboard</a></p>
+<p><a href="{% url 'dashboard' %}">Dashboard</a> | <a href="{% url 'domain_list' %}">Back to domains</a> </p>
 
 <p>Exposes a local TCP service on a dedicated public port. The SSH tunnel is opened automatically.</p>
-
-{% if tcp_port_base and tcp_port_max %}
-  <p>Your allocated public port range: <strong>{{ tcp_port_base }}–{{ tcp_port_max }}</strong></p>
-{% endif %}
 
 {% if form.non_field_errors %}
   <ul>{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>
@@ -33,5 +29,13 @@
 
   <button type="submit">Create</button>
 </form>
+
+{% if tcp_port_base and tcp_port_max %}
+<h3>Public port availability</h3>
+TCP
+  <p><strong>{{ tcp_port_base }}–{{ tcp_port_max }}</strong></p>
+{% endif %}
+
+
 </body>
 </html>
