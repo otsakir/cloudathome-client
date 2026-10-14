@@ -395,6 +395,13 @@ def cmd_remove(args):
     print(f'Removed profile "{args.profile}".')
 
 
+def cmd_reset_host_key(args):
+    config_path = _profile_config_path(args.profile)
+    manage_args = ['reset_host_key', '--yes'] if args.yes else ['reset_host_key']
+    result = _run_manage(config_path, *manage_args, capture=False)
+    sys.exit(result.returncode)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Manage CloudAtHome home-side profiles',
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -437,12 +444,19 @@ def main():
                                 'or refuses to release the home slot / revoke the token')
     p_remove.set_defaults(func=cmd_remove)
 
+    p_reset_host_key = subparsers.add_parser(
+        'reset-host-key',
+        help="Forget the cloud server's trusted SSH host key (after the cloud was rebuilt/redeployed)")
+    p_reset_host_key.add_argument('profile', help='Profile name (see: python cah.py list)')
+    p_reset_host_key.add_argument('-y', '--yes', action='store_true', help='Skip the confirmation prompt')
+    p_reset_host_key.set_defaults(func=cmd_reset_host_key)
+
     # Show every subcommand's flags in the top-level -h, built from the
     # subparsers themselves so it can't drift from the real options.
     # Swapping format_usage()'s 7-char "usage: " for a 2-space indent, so
     # wrapped continuation lines shift left by the same 5 to stay aligned.
     usages = []
-    for sub in (p_register, p_start, p_list, p_remove):
+    for sub in (p_register, p_start, p_list, p_remove, p_reset_host_key):
         first, *rest = sub.format_usage().rstrip().splitlines()
         usages.append('\n'.join(['  ' + first.removeprefix('usage: ')] + [line[5:] for line in rest]))
     parser.epilog = 'commands:\n' + '\n'.join(usages) + '\n\nRun "cah.py <command> -h" for details on a command\'s options.'

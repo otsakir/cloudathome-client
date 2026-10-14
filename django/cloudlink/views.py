@@ -7,10 +7,11 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import TemplateView, FormView
 
+from cloudlink import hostkey
 from cloudlink.config import get_config
 from cloudlink.services import CloudServerClient, CloudServerError
 from domains.models import Domain, ProxyEntry
-from domains.services import TunnelService
+from domains.services import TunnelConnectionService, TunnelService
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,9 @@ class DashboardView(TemplateView):
         context = super().get_context_data(**kwargs)
         cfg = get_config()
         context['config'] = cfg
+        context['host_key_change'] = hostkey.get_host_key_change()
+        if context['host_key_change']:
+            context['trusted_host_keys'] = hostkey.trusted_fingerprints()
         context['port_max'] = cfg.port_base + cfg.port_count - 1
         if cfg.tcp_port_base is not None and cfg.tcp_port_count is not None:
             context['tcp_port_max'] = cfg.tcp_port_base + cfg.tcp_port_count - 1
@@ -56,6 +60,20 @@ class DashboardView(TemplateView):
              'url_name': 'playbook_issue_certificate'},
         ]
         return context
+
+
+class ResetHostKeyView(View):
+    """Explicit user action after the cloud's SSH host key changed: forget the
+    old key, then reconnect everything so the new one gets pinned."""
+
+    def post(self, request):
+        hostkey.reset_host_key()
+        succeeded, failed = TunnelConnectionService.reconnect_all()
+        if failed:
+            messages.warning(request, f'Host key reset. Connect all: {succeeded} connected, {failed} failed')
+        else:
+            messages.success(request, f'Host key reset; all tunnels connected ({succeeded} entries)')
+        return redirect('dashboard')
 
 
 class SetBandwidthForm(forms.Form):

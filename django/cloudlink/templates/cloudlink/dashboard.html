@@ -10,6 +10,25 @@
   </ul>
 {% endif %}
 
+{% if host_key_change %}
+  <div style="border: 2px solid #c00; padding: 0.5em 1em; margin: 1em 0;">
+    <p><strong>The cloud server's SSH host key has changed</strong> — tunnels to
+      {{ host_key_change.host }} are refused until you decide whether to trust the new key.</p>
+    <p>This is expected if the cloud server was rebuilt or redeployed. Otherwise it may
+      indicate the connection is being intercepted: compare the new fingerprint with
+      the one shown on the cloud dashboard before trusting it.</p>
+    <table>
+      <tr><th>New key</th><td><code>{{ host_key_change.fingerprint|default:"unknown (see the tunnel logs)" }}</code></td></tr>
+      <tr><th>Trusted until now</th><td>{% for key_type, fp in trusted_host_keys %}{{ key_type }} <code>{{ fp }}</code>{% if not forloop.last %}<br>{% endif %}{% empty %}—{% endfor %}</td></tr>
+      <tr><th>Detected</th><td>{{ host_key_change.detected_at }}</td></tr>
+    </table>
+    <form method="post" action="{% url 'reset_host_key' %}">
+      {% csrf_token %}
+      <button type="submit" onclick="return confirm('Trust the new host key and reconnect all tunnels?')">Trust new host key and reconnect</button>
+    </form>
+  </div>
+{% endif %}
+
 <h2>Cloud connection</h2>
 <table>
   <tr><th>CloudServer URL</th><td>{{ config.cloudserver_url }}</td></tr>

@@ -32,6 +32,32 @@ host on your home network instead, set `features.lan_forwarding: true` in
 default), `home_host` is silently forced back to `localhost` regardless of what
 a form submits.
 
+## When the cloud's SSH host key changes
+
+Each profile pins its cloud server's SSH host key in its own
+`providers/<profile>/known_hosts` (never `~/.ssh/known_hosts`): the first
+tunnel trusts whatever key the cloud presents (`StrictHostKeyChecking=accept-new`),
+and every later one must match it.
+
+If the cloud is rebuilt or redeployed with fresh host keys, every tunnel is then
+refused with ssh's `REMOTE HOST IDENTIFICATION HAS CHANGED` warning. The client
+recognises that output: each affected entry's error says the host key changed
+(with the new fingerprint), and the Home Console dashboard shows a banner with
+the new and previously trusted fingerprints.
+
+Before trusting the new key, compare its fingerprint with the one shown under
+*Connection details* on the cloud dashboard — a changed key you can't explain
+may mean the connection is being intercepted. Then either:
+
+- click **Trust new host key and reconnect** on the Home Console dashboard, or
+- run `python cah.py reset-host-key <profile>` (prints both fingerprints and
+  asks for confirmation; `-y` skips it), then **Connect all** or restart the
+  console.
+
+Both just delete the profile's `known_hosts` (it only ever holds this one
+cloud's key), so the next tunnel pins the new key. This is never done
+automatically.
+
 ## Per-entry controls
 
 From a proxy entry's detail page:

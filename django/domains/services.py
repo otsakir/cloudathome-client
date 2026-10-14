@@ -10,6 +10,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from cloudlink.config import get_config
+from cloudlink.hostkey import HostKeyChangeDetector, known_hosts_path, record_host_key_change
 from cloudlink.services import CloudServerClient, CloudServerError
 
 logger = logging.getLogger(__name__)
@@ -61,10 +62,14 @@ def _pump_tunnel_output(proc, tlogger, entry_pk):
     its (merged stdout+stderr) output line by line into tlogger, then -- once
     the pipe closes, meaning the process exited -- logs an exit marker and
     reflects the death into the database immediately, rather than leaving a
-    stale 'open' status for something else to notice later."""
+    stale 'open' status for something else to notice later. Also watches the
+    output for ssh's "host key has changed" warning, so the entry's error says
+    so (and the dashboard can offer a reset) instead of just "exit code 255"."""
+    host_key = HostKeyChangeDetector()
     try:
         for line in proc.stdout:
             tlogger.info(line.rstrip('\n'))
+            host_key.feed(line)
     except Exception:
         logger.exception('tunnel log pump crashed for pid %s', proc.pid)
     finally:
@@ -77,10 +82,17 @@ def _pump_tunnel_output(proc, tlogger, entry_pk):
         except subprocess.TimeoutExpired:
             returncode = proc.poll()
         tlogger.info('--- tunnel process exited (pid %s, exit code %s) ---', proc.pid, returncode)
-        _on_tunnel_process_exited(entry_pk, proc.pid, returncode)
+        error = ''
+        if host_key.changed:
+            error = host_key.error_message()
+            try:
+                record_host_key_change(host_key.fingerprint)
+            except Exception:
+                logger.exception('failed to record host key change')
+        _on_tunnel_process_exited(entry_pk, proc.pid, returncode, error)
 
 
-def _on_tunnel_process_exited(entry_pk, pid, returncode):
+def _on_tunnel_process_exited(entry_pk, pid, returncode, error=''):
     """Called from the pump thread the moment a tunnel's ssh process exits, for
     whatever reason -- a stale host key, the cloud restarting, the network
     dropping, an explicit kill. A conditional UPDATE (not fetch-then-save):
@@ -99,11 +111,12 @@ def _on_tunnel_process_exited(entry_pk, pid, returncode):
     from domains.models import ProxyEntry
     updated = ProxyEntry.objects.filter(pk=entry_pk, tunnel_pid=pid).update(
         tunnel_pid=None, tunnel_status=ProxyEntry.TUNNEL_ERROR,
+        tunnel_error=error or f'Tunnel process exited unexpectedly (exit code {returncode})',
     )
     if updated:
         logger.warning(
-            'Tunnel for proxy entry %s (pid %s) exited unexpectedly (exit code %s); marked as error',
-            entry_pk, pid, returncode,
+            'Tunnel for proxy entry %s (pid %s) exited unexpectedly (exit code %s); marked as error%s',
+            entry_pk, pid, returncode, f': {error}' if error else '',
         )
 
 
@@ -225,6 +238,9 @@ class TunnelService:
                 '-R', f'{entry.tunnel_port}:{home_host}:{entry.home_port}',
                 '-i', str(cfg.ssh.private_key_path),
                 '-o', 'StrictHostKeyChecking=accept-new',
+                # Per-profile, so the cloud's key never lands in (or is checked
+                # against) ~/.ssh/known_hosts, and resetting it is self-contained.
+                '-o', f'UserKnownHostsFile={known_hosts_path()}',
                 '-o', 'ServerAliveInterval=30',
                 '-o', 'ExitOnForwardFailure=yes',
                 '-p', str(cfg.ssh.port),

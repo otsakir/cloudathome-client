@@ -111,6 +111,7 @@ Each profile's state lives entirely under its own `providers/<profile>/` directo
 | Database | `providers/<profile>/db.sqlite3` | `database` in config.yaml |
 | TLS certificates | `providers/<profile>/certbot/` | certbot working directory |
 | SSH key pair | `providers/<profile>/ssh_key` | `ssh.private_key_path` in config.yaml |
+| Cloud's SSH host key | `providers/<profile>/known_hosts` | pinned automatically on first tunnel |
 
 To move a profile to another machine: copy its `providers/<profile>/` directory,
 update any absolute paths in its `config.yaml`, and run `python cah.py start

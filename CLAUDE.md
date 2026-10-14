@@ -34,6 +34,9 @@ python cah.py start <profile> [--port PORT] [--no-reconnect]
 # List registered profiles (local only, no network calls)
 python cah.py list
 
+# Forget the cloud's trusted SSH host key (after the cloud was rebuilt/redeployed)
+python cah.py reset-host-key <profile> [-y|--yes]
+
 # Deregister a profile from its cloud server and delete it locally
 python cah.py remove <profile> [-y|--yes] [-f|--force]
 ```

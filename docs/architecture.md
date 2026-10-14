@@ -15,13 +15,15 @@ aren't obvious from reading a single file in isolation.
 
 ```
 .
-├── cah.py                               # single CLI: register / start / list / remove
+├── cah.py                               # single CLI: register / start / list / remove / reset-host-key
 ├── home.yaml.example                    # template for optional global settings (home.yaml, gitignored)
 ├── providers/                            # one subdirectory per registered cloud server ("profile"), gitignored
 │   └── <profile>/
 │       ├── config.yaml                  # written by cah.py register — contains secrets
 │       ├── db.sqlite3                   # this profile's Home Console database
 │       ├── ssh_key / ssh_key.pub        # dedicated key pair for this profile's tunnel
+│       ├── known_hosts                  # the cloud's SSH host key, pinned on first tunnel
+│       ├── host_key_changed.json        # present only while a changed host key awaits a decision
 │       └── certbot/                     # created on first certificate issuance
 │           ├── config/                  # certbot config and issued certificates
 │           ├── work/                    # certbot working directory

@@ -94,6 +94,7 @@ TBD
 | `python cah.py register [profile] --token <token> [--cloudserver-url URL]` | Register a new profile with a cloud server. |
 | `python cah.py start <profile> [--port PORT] [--no-reconnect]` | Start the Home Console for a profile (auto-assigned port, auto-reconnects tunnels). |
 | `python cah.py list` | List registered profiles — local only, no network calls. |
+| `python cah.py reset-host-key <profile> [-y\|--yes]` | Forget the cloud server's trusted SSH host key after it changed (e.g. the cloud was rebuilt) — see [tunnels-and-sync.md](docs/tunnels-and-sync.md#when-the-clouds-ssh-host-key-changes). |
 | `python cah.py remove <profile> [-y\|--yes] [-f\|--force]` | Deregister a profile from its cloud server and delete it locally (`-y`/`--yes` skips the confirmation prompt; `-f`/`--force` deletes locally even if the cloud server is unreachable or refuses to deregister). |
 
 Run `python cah.py <command> --help` for the full set of flags.
