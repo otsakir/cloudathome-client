@@ -69,6 +69,18 @@ Start the Home Console
 python cah.py start <profile-name>
 ```
 
+### Applying database migrations
+
+Each profile has its own database. `register` migrates it once, but `start` does not, so after
+pulling changes that add migrations, apply them to every profile you use (stop its Home Console first):
+
+```bash
+cd django
+HOME_CONFIG=../providers/<profile-name>/config.yaml python manage.py migrate
+```
+
+Use `showmigrations` in place of `migrate` to see what's still pending (unapplied ones are marked `[ ]`).
+
 ### Base & forwarded domains and proxy entries
 
 Base domains work like a DNS naming scope owned by a home. A home registers them to the cloud server and all requests 
